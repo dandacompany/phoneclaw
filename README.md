@@ -4,6 +4,16 @@ A Telegram AI assistant bot that runs on your Android phone.
 
 Uses the Claude Code SDK in a Termux + proot-distro Ubuntu environment to respond to Telegram messages with AI. Mention `@PhoneClaw` to invoke, with per-chat session memory, scheduled tasks, and MCP tools.
 
+## Quick Start
+
+```bash
+npx create-phoneclaw my-bot
+cd my-bot
+npm install
+npm run setup     # Interactive wizard: language, credentials, settings
+npm run dev       # Start the bot
+```
+
 ## Why PhoneClaw?
 
 [OpenClaw](https://github.com/openclaw/openclaw) is an open-source personal AI assistant that runs locally on your machine, supporting multiple AI providers (Claude, GPT, local models) with 50+ service integrations. While powerful, it comes with a massive codebase and inherent security risks from its broad system access — browser automation, file I/O, command execution — that make casual deployment challenging.
@@ -90,7 +100,7 @@ npm install
 npm run setup
 ```
 
-The interactive wizard guides you through language selection → credential setup → API verification → environment configuration → automatic execution of all 11 skills.
+The interactive wizard guides you through language selection → credential setup → API verification → environment configuration → `.env` file generation.
 
 ### Option 2: Manual Setup
 
@@ -180,12 +190,12 @@ Admin only (users registered in `ADMIN_USER_IDS`):
 | `/chats` | List registered chats |
 | `/tasks` | List scheduled tasks |
 
-## Skill-Based Build
+## Educational Skills
 
-This project provides 11 Claude Code skills organized as episodes. Running them in order on an empty project incrementally builds the complete bot.
+This project includes 11 Claude Code skills organized as episodes. Each skill serves as an educational guide for understanding and customizing its component. The core bot is ready to use after `npm run setup`.
 
 ```bash
-# Run skills in Claude Code
+# Run skills in Claude Code to learn about or customize each component
 /phoneclaw-scaffold          # EP01: Project scaffolding
 /phoneclaw-telegram          # EP02: Telegram bot connection
 /phoneclaw-database          # EP03: SQLite database
@@ -288,7 +298,7 @@ This chat is a data science study group.
 
 ## Acknowledgements
 
-This project was inspired by [NanoClaw](https://github.com/gavrielc/nanoclaw) by [@gavrielc](https://github.com/gavrielc). NanoClaw's clean architecture for a personal Claude assistant — particularly its TUI setup wizard, skill execution engine, and agentic error recovery patterns — served as a valuable reference during development.
+This project was inspired by [NanoClaw](https://github.com/gavrielc/nanoclaw) by [@gavrielc](https://github.com/gavrielc). NanoClaw's clean architecture for a personal Claude assistant — particularly its lightweight core and skill-based educational approach — served as a valuable reference during development.
 
 ## Author
 

@@ -3,6 +3,10 @@ name: phoneclaw-admin-commands
 description: "EP10 - PhoneClaw Telegram Admin Commands Implementation"
 ---
 
+> **Note:** This is an educational guide for understanding and customizing the admin commands module.
+> The core code is already included in the project. Run this skill only if you want to
+> learn how this component works or customize its behavior.
+
 # EP10: Telegram Admin Commands (phoneclaw-admin-commands)
 
 ## Overview

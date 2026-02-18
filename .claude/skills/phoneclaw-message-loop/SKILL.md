@@ -3,6 +3,10 @@ name: phoneclaw-message-loop
 description: "PhoneClaw EP05 - Main message processing loop. Automatically generates the core files that handle the entire flow: Telegram message reception -> DB storage -> queue -> Agent execution -> response delivery."
 ---
 
+> **Note:** This is an educational guide for understanding and customizing the message processing loop module.
+> The core code is already included in the project. Run this skill only if you want to
+> learn how this component works or customize its behavior.
+
 # EP05: PhoneClaw Message Loop
 
 Receives Telegram messages, routes them to the Agent, and returns responses via the **main processing loop**.

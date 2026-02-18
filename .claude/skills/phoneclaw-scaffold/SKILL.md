@@ -3,6 +3,10 @@ name: phoneclaw-scaffold
 description: "PhoneClaw EP01 - Project foundation setup. Auto-generates TypeScript + ESM project initial configuration, environment variables, logger, and type definitions."
 ---
 
+> **Note:** This is an educational guide for understanding and customizing the project foundation module.
+> The core code is already included in the project. Run this skill only if you want to
+> learn how this component works or customize its behavior.
+
 # EP01: PhoneClaw Project Foundation Setup
 
 ## Overview

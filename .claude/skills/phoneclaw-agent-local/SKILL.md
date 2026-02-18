@@ -3,6 +3,10 @@ name: phoneclaw-agent-local
 description: "PhoneClaw EP04 - Claude Agent (Local mode). Uses the @anthropic-ai/claude-code SDK to run per-chat Agents and perform message sending/scheduling via MCP tools."
 ---
 
+> **Note:** This is an educational guide for understanding and customizing the Claude agent runner module.
+> The core code is already included in the project. Run this skill only if you want to
+> learn how this component works or customize its behavior.
+
 # EP04: Claude Agent (Local Mode)
 
 ## Overview

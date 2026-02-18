@@ -3,6 +3,10 @@ name: phoneclaw-scheduler
 description: "EP08 - PhoneClaw Scheduled Task Scheduler"
 ---
 
+> **Note:** This is an educational guide for understanding and customizing the scheduled tasks module.
+> The core code is already included in the project. Run this skill only if you want to
+> learn how this component works or customize its behavior.
+
 # EP08: Scheduled Task Scheduler (phoneclaw-scheduler)
 
 ## Overview

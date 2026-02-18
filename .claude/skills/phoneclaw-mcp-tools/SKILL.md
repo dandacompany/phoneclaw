@@ -3,6 +3,10 @@ name: phoneclaw-mcp-tools
 description: "PhoneClaw EP06 - Agent MCP Tools. Uses Claude Code SDK's MCP server to provide a tool set that enables the Agent to send Telegram messages, manage scheduled tasks, and more during execution."
 ---
 
+> **Note:** This is an educational guide for understanding and customizing the MCP tools module.
+> The core code is already included in the project. Run this skill only if you want to
+> learn how this component works or customize its behavior.
+
 # EP06: PhoneClaw MCP Tools
 
 Defines **MCP (Model Context Protocol) tools** that the Agent can use during execution, and integrates them into the Local Runner.

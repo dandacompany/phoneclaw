@@ -3,6 +3,10 @@ name: phoneclaw-multi-chat
 description: "EP09 - PhoneClaw Multi-Chat Support Implementation"
 ---
 
+> **Note:** This is an educational guide for understanding and customizing the multi-chat support module.
+> The core code is already included in the project. Run this skill only if you want to
+> learn how this component works or customize its behavior.
+
 # EP09: Multi-Chat Support (phoneclaw-multi-chat)
 
 ## Overview

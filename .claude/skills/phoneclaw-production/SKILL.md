@@ -3,6 +3,10 @@ name: phoneclaw-production
 description: "EP11 - PhoneClaw Production Deployment (proot-distro, PM2, Log Management)"
 ---
 
+> **Note:** This is an educational guide for understanding and customizing the production deployment module.
+> The core code is already included in the project. Run this skill only if you want to
+> learn how this component works or customize its behavior.
+
 # EP11: Production Deployment (phoneclaw-production)
 
 ## Overview

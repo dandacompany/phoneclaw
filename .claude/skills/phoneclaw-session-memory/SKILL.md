@@ -3,6 +3,10 @@ name: phoneclaw-session-memory
 description: "PhoneClaw EP07 - Session Memory. Uses the Claude Code SDK session resume feature and per-chat CLAUDE.md files so the Agent can remember previous conversation context and apply different personalities/instructions for each chat."
 ---
 
+> **Note:** This is an educational guide for understanding and customizing the session memory module.
+> The core code is already included in the project. Run this skill only if you want to
+> learn how this component works or customize its behavior.
+
 # EP07: PhoneClaw Session Memory
 
 Build a **session memory** system that allows the Agent to remember previous conversations and apply different personalities and instructions per chat.

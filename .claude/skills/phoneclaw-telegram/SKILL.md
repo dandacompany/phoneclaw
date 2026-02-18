@@ -3,6 +3,10 @@ name: phoneclaw-telegram
 description: "PhoneClaw EP02 - Telegram bot connection. Implements a grammy-based Telegram channel for message receiving/sending and command handling."
 ---
 
+> **Note:** This is an educational guide for understanding and customizing the Telegram channel module.
+> The core code is already included in the project. Run this skill only if you want to
+> learn how this component works or customize its behavior.
+
 # EP02: Telegram Bot Connection
 
 ## Overview

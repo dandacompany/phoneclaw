@@ -3,6 +3,10 @@ name: phoneclaw-database
 description: "PhoneClaw EP03 - SQLite database. Manages all persistent data including chats, messages, sessions, and scheduled tasks using better-sqlite3."
 ---
 
+> **Note:** This is an educational guide for understanding and customizing the SQLite database module.
+> The core code is already included in the project. Run this skill only if you want to
+> learn how this component works or customize its behavior.
+
 # EP03: SQLite Database
 
 ## Overview

@@ -19,17 +19,3 @@ export interface WizardState {
     timezone: string;
   };
 }
-
-export interface SkillMeta {
-  name: string;       // 'phoneclaw-scaffold'
-  episode: string;    // 'EP01'
-  title: string;      // '프로젝트 기반 구축'
-}
-
-export interface SkillRunResult {
-  skill: SkillMeta;
-  success: boolean;
-  durationMs: number;
-  error?: string;
-  retryCount: number;
-}
