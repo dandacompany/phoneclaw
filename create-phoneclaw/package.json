@@ -1,0 +1,26 @@
+{
+  "name": "create-phoneclaw",
+  "version": "0.1.0",
+  "description": "Create a PhoneClaw AI assistant bot for your Android phone",
+  "type": "module",
+  "bin": {
+    "create-phoneclaw": "./index.js"
+  },
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "phoneclaw",
+    "telegram",
+    "bot",
+    "ai",
+    "claude",
+    "android",
+    "termux"
+  ],
+  "author": "Dante Labs",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,49 @@
+# === 프로젝트 런타임 ===
+node_modules/
+dist/
+data/
+chats/
+*.db
+*.db-journal
+.env
+.env.bak
+*.log
+CLAUDE.md
+
+# === OS ===
+.DS_Store
+Thumbs.db
+Desktop.ini
+._*
+
+# === IDE / 에디터 ===
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# === TypeScript / Node.js ===
+*.tsbuildinfo
+*.d.ts.map
+coverage/
+.nyc_output/
+
+# === 테스트 ===
+__snapshots__/
+
+# === Claude Code (스킬은 유지, 런타임은 제외) ===
+.claude/**
+!.claude/skills/
+!.claude/skills/**
+
+# === 기타 ===
+*.tgz
+*.gz
+*.zip
+.cache/
+tmp/
