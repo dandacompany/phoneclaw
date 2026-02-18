@@ -209,6 +209,28 @@ This project includes 11 Claude Code skills organized as episodes. Each skill se
 /phoneclaw-production        # EP11: Production deployment
 ```
 
+### How to Use Skills
+
+**1. Learning Guide** — Each skill explains *why* and *how* a component was built. Run a skill in Claude Code to walk through the architecture interactively.
+
+```bash
+/phoneclaw-database    # Learn why better-sqlite3 was chosen and how WAL mode works
+```
+
+**2. Customization** — Want to modify a specific module? Run its skill and Claude Code will guide you with full context of the existing structure.
+
+```bash
+/phoneclaw-scheduler   # Change default schedule type from cron to interval
+/phoneclaw-mcp-tools   # Add a web search tool to the MCP server
+```
+
+**3. Build from Scratch** — Advanced users can run all 11 skills in order on an empty project to build the entire bot step by step, without using the setup wizard.
+
+```bash
+# In an empty folder, run skills sequentially in Claude Code
+/phoneclaw-scaffold → /phoneclaw-telegram → ... → /phoneclaw-production
+```
+
 ### Dependency Graph
 
 ```
