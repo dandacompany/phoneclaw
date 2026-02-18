@@ -1,38 +1,38 @@
 ---
 name: phoneclaw-database
-description: "PhoneClaw EP03 - SQLite 데이터베이스. better-sqlite3 기반으로 채팅, 메시지, 세션, 예약 작업 등 모든 영속 데이터를 관리합니다."
+description: "PhoneClaw EP03 - SQLite database. Manages all persistent data including chats, messages, sessions, and scheduled tasks using better-sqlite3."
 ---
 
-# EP03: SQLite 데이터베이스
+# EP03: SQLite Database
 
-## 개요
+## Overview
 
-better-sqlite3를 사용하여 PhoneClaw의 모든 영속 데이터를 관리하는 데이터베이스 모듈을 구현합니다.
-WAL 모드로 동시 읽기 성능을 최적화하며, 다음 테이블을 관리합니다:
+Implements a database module that manages all persistent data for PhoneClaw using better-sqlite3.
+Optimizes concurrent read performance with WAL mode and manages the following tables:
 
-- `chats` - 채팅 메타데이터 (ID, 이름, 마지막 메시지 시간)
-- `messages` - 수신/발신 메시지 기록
-- `registered_chats` - 봇이 응답하는 등록된 채팅 목록
-- `sessions` - 채팅별 Agent 세션 ID
-- `scheduled_tasks` - 예약 작업 (cron, interval, once)
-- `task_run_logs` - 예약 작업 실행 로그
-- `router_state` - 라우터 상태 키-값 저장소
+- `chats` - Chat metadata (ID, name, last message time)
+- `messages` - Inbound/outbound message history
+- `registered_chats` - List of registered chats the bot responds to
+- `sessions` - Per-chat Agent session IDs
+- `scheduled_tasks` - Scheduled tasks (cron, interval, once)
+- `task_run_logs` - Scheduled task execution logs
+- `router_state` - Router state key-value store
 
-주요 기능:
-- 스키마 자동 생성 (CREATE IF NOT EXISTS)
-- 메모리 DB 지원 (테스트용)
-- 채팅 등록/해제, 메시지 저장/조회, 세션 관리, 예약 작업 CRUD
+Key features:
+- Automatic schema creation (CREATE IF NOT EXISTS)
+- In-memory DB support (for testing)
+- Chat registration/unregistration, message storage/retrieval, session management, scheduled task CRUD
 
-## 의존성
+## Dependencies
 
-- **EP01 완료 필수**: `src/config.ts`, `src/types.ts` 필요
-- `npm install` 완료 상태 (better-sqlite3 포함)
+- **EP01 must be completed**: Requires `src/config.ts`, `src/types.ts`
+- `npm install` must be completed (including better-sqlite3)
 
-## 단계별 지시
+## Step-by-Step Instructions
 
-### 1단계: src/db.ts 생성
+### Step 1: Create src/db.ts
 
-다음 내용으로 `src/db.ts`를 작성합니다:
+Write `src/db.ts` with the following content:
 
 ```typescript
 import Database from 'better-sqlite3';
@@ -113,7 +113,7 @@ function createSchema(database: Database.Database): void {
   `);
 }
 
-// === 초기화 ===
+// === Initialization ===
 
 export function initDatabase(): void {
   const dbPath = path.join(DATA_DIR, 'phoneclaw.db');
@@ -128,7 +128,7 @@ export function _initTestDatabase(): void {
   createSchema(db);
 }
 
-// === 채팅 메타데이터 ===
+// === Chat metadata ===
 
 export function storeChatMetadata(chatId: string, timestamp: string, name?: string): void {
   if (name) {
@@ -165,7 +165,7 @@ export function getAllChats(): ChatInfo[] {
     }));
 }
 
-// === 메시지 ===
+// === Messages ===
 
 export function storeMessage(msg: NewMessage): void {
   db.prepare(`
@@ -230,7 +230,7 @@ export function getMessagesSince(chatId: string, sinceTimestamp: string): NewMes
   }));
 }
 
-// === 등록된 채팅 ===
+// === Registered chats ===
 
 export function getRegisteredChat(chatId: string): RegisteredChat | undefined {
   const row = db.prepare('SELECT * FROM registered_chats WHERE chat_id = ?').get(chatId) as {
@@ -274,7 +274,7 @@ export function getAllRegisteredChats(): Record<string, RegisteredChat> {
   return result;
 }
 
-// === 세션 ===
+// === Sessions ===
 
 export function getSession(chatFolder: string): string | undefined {
   const row = db.prepare('SELECT session_id FROM sessions WHERE chat_folder = ?').get(chatFolder) as {
@@ -287,7 +287,7 @@ export function setSession(chatFolder: string, sessionId: string): void {
   db.prepare('INSERT OR REPLACE INTO sessions (chat_folder, session_id) VALUES (?, ?)').run(chatFolder, sessionId);
 }
 
-// === 예약 작업 ===
+// === Scheduled tasks ===
 
 export function createTask(task: Omit<ScheduledTask, 'lastRun' | 'lastResult'>): void {
   db.prepare(`
@@ -399,7 +399,7 @@ export function logTaskRun(log: TaskRunLog): void {
   `).run(log.taskId, log.runAt, log.durationMs, log.status, log.result, log.error);
 }
 
-// === 라우터 상태 ===
+// === Router state ===
 
 export function getRouterState(key: string): string | undefined {
   const row = db.prepare('SELECT value FROM router_state WHERE key = ?').get(key) as { value: string } | undefined;
@@ -411,13 +411,13 @@ export function setRouterState(key: string, value: string): void {
 }
 ```
 
-## 검증
+## Verification
 
-타입 체크를 실행하여 오류가 없는지 확인합니다:
+Run a type check to ensure there are no errors:
 
 ```bash
 npx tsc --noEmit
 ```
 
-타입 체크가 통과하면 EP03이 완료된 것입니다.
-다음 에피소드(EP04)에서 Claude Agent를 Local 모드로 연동합니다.
+If the type check passes, EP03 is complete.
+In the next episode (EP04), we will integrate the Claude Agent in local mode.

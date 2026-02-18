@@ -1,39 +1,39 @@
-// 스킬 실행 시 SDK query()에 전달되는 프로젝트 컨텍스트
-// CLAUDE.md와 독립적으로 운영 — 사용자 빌드 환경에 CLAUDE.md가 없어도 동작
+// Project context passed to SDK query() during skill execution
+// Operates independently from CLAUDE.md — works even without CLAUDE.md in user's build environment
 
 export const SKILL_SYSTEM_CONTEXT = `
-# PhoneClaw - 프로젝트 컨텍스트
+# PhoneClaw - Project Context
 
-## 대상 환경
+## Target Environment
 - Android ARM64 + Termux + proot-distro Ubuntu
-- Docker 불가, systemd 불가 (proot 제약)
-- PM2로 프로세스 관리
+- No Docker, no systemd (proot limitations)
+- Process management via PM2
 
-## 기술 스택
-- 런타임: Node.js 20+, TypeScript (ESM, "type": "module")
+## Tech Stack
+- Runtime: Node.js 20+, TypeScript (ESM, "type": "module")
 - AI: @anthropic-ai/claude-code (Agent SDK)
-- 메시징: grammy (Telegram Bot API)
+- Messaging: grammy (Telegram Bot API)
 - DB: better-sqlite3 (SQLite, WAL mode)
 - MCP: @modelcontextprotocol/sdk
-- 스케줄러: cron-parser
-- 로깅: pino + pino-pretty
+- Scheduler: cron-parser
+- Logging: pino + pino-pretty
 
-## 코드 컨벤션
-- 식별자(변수, 함수, 클래스): 영어
-- 주석, 로그 메시지: 한국어
-- 파일 확장자: .ts, import 시 .js (ESM)
-- 들여쓰기: 2칸 스페이스
-- 세미콜론 사용
-- 작은따옴표 기본
+## Code Conventions
+- Identifiers (variables, functions, classes): English
+- Comments, log messages: English
+- File extension: .ts, use .js in imports (ESM)
+- Indentation: 2 spaces
+- Semicolons required
+- Single quotes preferred
 
-## 디렉토리 구조
-- src/ - 소스 코드
-- data/ - 런타임 데이터 (DB, 세션) — gitignored
-- chats/ - 채팅별 설정 (CLAUDE.md, 로그) — gitignored
-- scripts/ - PM2 시작/종료/로그 정리 스크립트
+## Directory Structure
+- src/ - Source code
+- data/ - Runtime data (DB, sessions) — gitignored
+- chats/ - Per-chat config (CLAUDE.md, logs) — gitignored
+- scripts/ - PM2 start/stop/log cleanup scripts
 
-## 주의사항
-- proot-distro 환경에서 Docker/systemd는 사용 불가. PM2로 대체.
-- better-sqlite3는 C++ 네이티브 모듈로 ARM64에서 소스 빌드 필요.
-- inotify가 불안정하므로 파일 감시 시 polling 사용.
+## Important Notes
+- Docker/systemd are unavailable in proot-distro. Use PM2 instead.
+- better-sqlite3 is a C++ native module that requires source compilation on ARM64.
+- inotify may be unstable; use polling for file watching.
 `.trim();

@@ -1,49 +1,49 @@
 ---
 name: phoneclaw-scaffold
-description: "PhoneClaw EP01 - 프로젝트 기반 구축. TypeScript + ESM 프로젝트 초기 설정, 환경 변수, 로거, 타입 정의를 자동 생성합니다."
+description: "PhoneClaw EP01 - Project foundation setup. Auto-generates TypeScript + ESM project initial configuration, environment variables, logger, and type definitions."
 ---
 
-# EP01: PhoneClaw 프로젝트 기반 구축
+# EP01: PhoneClaw Project Foundation Setup
 
-## 개요
+## Overview
 
-Telegram AI 비서 봇 "PhoneClaw" 프로젝트의 기반을 구축합니다.
-Node.js 20+ / TypeScript (ESM) 환경에서 다음을 설정합니다:
+Sets up the foundation for the Telegram AI assistant bot project "PhoneClaw".
+Configures the following in a Node.js 20+ / TypeScript (ESM) environment:
 
-- `package.json` - 프로젝트 의존성 및 스크립트
-- `tsconfig.json` - TypeScript 컴파일러 설정
-- `.env.example` - 환경 변수 템플릿
-- `.gitignore` - Git 제외 파일
-- `CLAUDE.md` - 프로젝트 컨벤션 가이드
-- `src/config.ts` - 환경 변수 로드 및 상수 정의
-- `src/logger.ts` - pino 기반 로거
-- `src/types.ts` - 공유 인터페이스/타입 정의
+- `package.json` - Project dependencies and scripts
+- `tsconfig.json` - TypeScript compiler configuration
+- `.env.example` - Environment variable template
+- `.gitignore` - Git ignore file
+- `CLAUDE.md` - Project convention guide
+- `src/config.ts` - Environment variable loading and constant definitions
+- `src/logger.ts` - pino-based logger
+- `src/types.ts` - Shared interface/type definitions
 
-## 의존성
+## Dependencies
 
-- 이전 에피소드 없음 (첫 번째 에피소드)
-- Node.js 20 이상 필요
+- No prior episodes (this is the first episode)
+- Requires Node.js 20 or above
 
-## 단계별 지시
+## Step-by-Step Instructions
 
-### 1단계: 프로젝트 디렉토리 생성
+### Step 1: Create Project Directory
 
-프로젝트 루트 디렉토리를 생성합니다. 이미 존재하면 건너뜁니다.
+Create the project root directory. Skip if it already exists.
 
 ```bash
 mkdir -p phoneclaw/src
 cd phoneclaw
 ```
 
-### 2단계: package.json 생성
+### Step 2: Create package.json
 
-다음 내용으로 `package.json`을 작성합니다:
+Write `package.json` with the following content:
 
 ```json
 {
   "name": "phoneclaw",
   "version": "0.1.0",
-  "description": "Telegram AI 비서 봇 - Claude Code Skills 기반",
+  "description": "Telegram AI assistant bot - Based on Claude Code Skills",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -77,9 +77,9 @@ cd phoneclaw
 }
 ```
 
-### 3단계: tsconfig.json 생성
+### Step 3: Create tsconfig.json
 
-다음 내용으로 `tsconfig.json`을 작성합니다:
+Write `tsconfig.json` with the following content:
 
 ```json
 {
@@ -103,29 +103,29 @@ cd phoneclaw
 }
 ```
 
-### 4단계: .env.example 생성
+### Step 4: Create .env.example
 
-다음 내용으로 `.env.example`을 작성합니다:
+Write `.env.example` with the following content:
 
 ```
-# === 필수 설정 ===
-TELEGRAM_BOT_TOKEN=          # @BotFather에서 발급
-ANTHROPIC_API_KEY=            # Anthropic 콘솔에서 발급
+# === Required Settings ===
+TELEGRAM_BOT_TOKEN=          # Issued from @BotFather
+ANTHROPIC_API_KEY=            # Issued from Anthropic console
 
-# === 선택 설정 ===
-BOT_NAME=PhoneClaw            # 봇 표시 이름 (트리거 패턴에 사용)
+# === Optional Settings ===
+BOT_NAME=PhoneClaw            # Bot display name (used in trigger pattern)
 ANTHROPIC_MODEL=claude-sonnet-4-20250514
-ANTHROPIC_BASE_URL=           # 대체 API 호환 엔드포인트 (비워두면 공식 API)
-ADMIN_USER_IDS=               # 쉼표 구분 Telegram user ID (관리자 명령어용)
+ANTHROPIC_BASE_URL=           # Alternative API-compatible endpoint (leave empty for official API)
+ADMIN_USER_IDS=               # Comma-separated Telegram user IDs (for admin commands)
 LOG_LEVEL=info                # trace, debug, info, warn, error, fatal
-AGENT_TIMEOUT=300000          # Agent 실행 제한 시간 (ms, 기본 5분)
-MAX_CONCURRENT_AGENTS=3       # 동시 실행 Agent 수 제한
-TZ=Asia/Seoul                 # 스케줄러 타임존
+AGENT_TIMEOUT=300000          # Agent execution timeout (ms, default 5 min)
+MAX_CONCURRENT_AGENTS=3       # Max concurrent agent limit
+TZ=Asia/Seoul                 # Scheduler timezone
 ```
 
-### 5단계: .gitignore 생성
+### Step 5: Create .gitignore
 
-다음 내용으로 `.gitignore`를 작성합니다:
+Write `.gitignore` with the following content:
 
 ```
 node_modules/
@@ -139,62 +139,62 @@ chats/
 .DS_Store
 ```
 
-### 6단계: CLAUDE.md 생성
+### Step 6: Create CLAUDE.md
 
-다음 내용으로 `CLAUDE.md`를 작성합니다:
+Write `CLAUDE.md` with the following content:
 
 ```markdown
-# PhoneClaw - Telegram AI 비서 봇
+# PhoneClaw - Telegram AI Assistant Bot
 
-## 프로젝트 개요
-Claude Agent SDK + grammy 기반 Telegram AI 비서 봇.
-YouTube 교육 시리즈로 제작되며, 각 에피소드가 하나의 Claude Code 스킬에 대응.
+## Project Overview
+Telegram AI assistant bot based on Claude Agent SDK + grammy.
+Built as a YouTube tutorial series, where each episode corresponds to one Claude Code skill.
 
-## 기술 스택
-- **런타임**: Node.js 20+, TypeScript (ESM)
+## Tech Stack
+- **Runtime**: Node.js 20+, TypeScript (ESM)
 - **AI**: @anthropic-ai/claude-code (Agent SDK)
-- **메시징**: grammy (Telegram Bot API)
+- **Messaging**: grammy (Telegram Bot API)
 - **DB**: better-sqlite3 (SQLite)
 - **MCP**: @modelcontextprotocol/sdk
-- **로깅**: pino + pino-pretty
+- **Logging**: pino + pino-pretty
 
-## 코드 컨벤션
-- 식별자(변수, 함수, 클래스): 영어
-- 주석, 로그 메시지: 한국어
-- 파일 확장자: `.ts`, import 시 `.js` (ESM)
-- 들여쓰기: 2칸 스페이스
-- 세미콜론 사용
-- 작은따옴표 기본
+## Code Conventions
+- Identifiers (variables, functions, classes): English
+- Comments, log messages: Korean
+- File extension: `.ts`, use `.js` in imports (ESM)
+- Indentation: 2 spaces
+- Semicolons required
+- Single quotes by default
 
-## 디렉토리 구조
-- `src/` - 소스 코드
-- `data/` - 런타임 데이터 (DB, 세션, IPC) — gitignored
-- `chats/` - 채팅별 설정 (CLAUDE.md, 로그) — gitignored
-- `ref/` - 참고 자료
+## Directory Structure
+- `src/` - Source code
+- `data/` - Runtime data (DB, sessions, IPC) — gitignored
+- `chats/` - Per-chat settings (CLAUDE.md, logs) — gitignored
+- `ref/` - Reference materials
 
-## 주요 명령어
+## Key Commands
 \`\`\`bash
-npm run dev       # 개발 모드 실행
-npm run build     # TypeScript 컴파일
-npm start         # 프로덕션 실행
-npm run typecheck # 타입 체크
-npm test          # 테스트 실행
+npm run dev       # Run in development mode
+npm run build     # Compile TypeScript
+npm start         # Run in production
+npm run typecheck # Type check
+npm test          # Run tests
 \`\`\`
 
-## 환경 변수
-`.env.example` 참조. `.env` 파일로 복사 후 값 설정.
+## Environment Variables
+See `.env.example`. Copy to `.env` and fill in values.
 ```
 
-### 7단계: src/config.ts 생성
+### Step 7: Create src/config.ts
 
-다음 내용으로 `src/config.ts`를 작성합니다:
+Write `src/config.ts` with the following content:
 
 ```typescript
 import path from 'path';
 
-// === 봇 기본 설정 ===
+// === Bot basic settings ===
 export const BOT_NAME = process.env.BOT_NAME || 'PhoneClaw';
-// proot-distro 환경: local 모드만 지원 (Docker 불가)
+// proot-distro environment: only local mode supported (Docker unavailable)
 
 // === Telegram ===
 export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
@@ -204,13 +204,13 @@ export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 export const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
 export const ANTHROPIC_BASE_URL = process.env.ANTHROPIC_BASE_URL || '';
 
-// === 관리자 ===
+// === Admin ===
 export const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS || '')
   .split(',')
   .map((id) => id.trim())
   .filter(Boolean);
 
-// === 경로 ===
+// === Paths ===
 const PROJECT_ROOT = process.cwd();
 export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');
 export const CHATS_DIR = path.resolve(PROJECT_ROOT, 'chats');
@@ -218,25 +218,25 @@ export const DB_PATH = path.resolve(DATA_DIR, 'phoneclaw.db');
 export const SESSIONS_DIR = path.resolve(DATA_DIR, 'sessions');
 export const IPC_DIR = path.resolve(DATA_DIR, 'ipc');
 
-// === Agent 실행 ===
+// === Agent execution ===
 export const AGENT_TIMEOUT = parseInt(process.env.AGENT_TIMEOUT || '300000', 10);
 export const MAX_CONCURRENT_AGENTS = Math.max(
   1,
   parseInt(process.env.MAX_CONCURRENT_AGENTS || '3', 10) || 3,
 );
 
-// === 폴링/타이밍 ===
+// === Polling/Timing ===
 export const POLL_INTERVAL = 2000;
 export const IPC_POLL_INTERVAL = 1000;
 export const SCHEDULER_POLL_INTERVAL = 60000;
 
-// === 로깅 ===
+// === Logging ===
 export const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 
-// === 타임존 ===
+// === Timezone ===
 export const TIMEZONE = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-// === 트리거 패턴 ===
+// === Trigger pattern ===
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -244,9 +244,9 @@ export const TRIGGER_PATTERN = new RegExp(`^@${escapeRegex(BOT_NAME)}\\b`, 'i');
 
 ```
 
-### 8단계: src/logger.ts 생성
+### Step 8: Create src/logger.ts
 
-다음 내용으로 `src/logger.ts`를 작성합니다:
+Write `src/logger.ts` with the following content:
 
 ```typescript
 import pino from 'pino';
@@ -265,12 +265,12 @@ export const logger = pino({
 });
 ```
 
-### 9단계: src/types.ts 생성
+### Step 9: Create src/types.ts
 
-다음 내용으로 `src/types.ts`를 작성합니다:
+Write `src/types.ts` with the following content:
 
 ```typescript
-// === Channel 추상화 ===
+// === Channel abstraction ===
 
 export interface Channel {
   name: string;
@@ -284,7 +284,7 @@ export interface Channel {
 export type OnInboundMessage = (chatId: string, message: NewMessage) => void;
 export type OnChatMetadata = (chatId: string, timestamp: string, name?: string) => void;
 
-// === 메시지 ===
+// === Messages ===
 
 export interface NewMessage {
   id: string;
@@ -296,7 +296,7 @@ export interface NewMessage {
   isFromMe?: boolean;
 }
 
-// === 등록된 채팅 ===
+// === Registered chats ===
 
 export interface RegisteredChat {
   chatId: string;
@@ -328,7 +328,7 @@ export interface AgentRunner {
   shutdown(): Promise<void>;
 }
 
-// === 스케줄링 ===
+// === Scheduling ===
 
 export interface ScheduledTask {
   id: string;
@@ -354,25 +354,25 @@ export interface TaskRunLog {
 }
 ```
 
-### 10단계: 의존성 설치
+### Step 10: Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 11단계: 디렉토리 구조 확인
+### Step 11: Verify Directory Structure
 
 ```bash
 mkdir -p data chats
 ```
 
-## 검증
+## Verification
 
-모든 파일이 생성된 후 타입 체크를 실행하여 오류가 없는지 확인합니다:
+After all files are created, run a type check to ensure there are no errors:
 
 ```bash
 npx tsc --noEmit
 ```
 
-타입 체크가 통과하면 EP01이 완료된 것입니다.
-다음 에피소드(EP02)에서 Telegram 봇을 연결합니다.
+If the type check passes, EP01 is complete.
+In the next episode (EP02), we will connect the Telegram bot.

@@ -1,23 +1,23 @@
 ---
 name: phoneclaw-mcp-tools
-description: "PhoneClaw EP06 - Agent MCP 도구. Claude Code SDK의 MCP 서버를 활용하여 Agent가 실행 중 Telegram 메시지 전송, 예약 작업 관리 등을 수행할 수 있는 도구 세트를 구성합니다."
+description: "PhoneClaw EP06 - Agent MCP Tools. Uses Claude Code SDK's MCP server to provide a tool set that enables the Agent to send Telegram messages, manage scheduled tasks, and more during execution."
 ---
 
 # EP06: PhoneClaw MCP Tools
 
-Agent가 실행 중에 사용할 수 있는 **MCP(Model Context Protocol) 도구**를 정의하고, Local Runner에 통합합니다.
+Defines **MCP (Model Context Protocol) tools** that the Agent can use during execution, and integrates them into the Local Runner.
 
-## 개요
+## Overview
 
-Claude Code SDK의 `createSdkMcpServer`를 사용하여 커스텀 MCP 서버를 구성합니다. Agent는 이 MCP 도구를 통해:
+Uses `createSdkMcpServer` from the Claude Code SDK to build a custom MCP server. Through these MCP tools, the Agent can:
 
-- **`send_message`**: 실행 도중 사용자에게 즉시 메시지 전송 (진행 상황 알림 등)
-- **`schedule_task`**: cron/interval/once 방식으로 예약 작업 등록
-- **`list_tasks`**: 현재 채팅의 예약 작업 목록 조회
-- **`pause_task`** / **`resume_task`**: 작업 일시정지/재개
-- **`cancel_task`**: 작업 취소 및 삭제
+- **`send_message`**: Send a message to the user immediately during execution (progress updates, etc.)
+- **`schedule_task`**: Register scheduled tasks via cron/interval/once
+- **`list_tasks`**: List scheduled tasks for the current chat
+- **`pause_task`** / **`resume_task`**: Pause/resume tasks
+- **`cancel_task`**: Cancel and delete tasks
 
-### 아키텍처
+### Architecture
 
 ```
 Agent (Claude Code)
@@ -30,18 +30,18 @@ Agent (Claude Code)
   └── mcp__phoneclaw__cancel_task    -> callbacks.cancelTask -> DB
 ```
 
-MCP 도구는 콜백 패턴으로 구현되어, 실제 실행 로직(Telegram 전송, DB 조작)은 `index.ts`에서 주입합니다.
+MCP tools are implemented using the callback pattern, so the actual execution logic (Telegram sending, DB operations) is injected from `index.ts`.
 
-## 의존성
+## Dependencies
 
-- **EP01~EP04 완료 필수**: `config.ts`, `types.ts`, `db.ts`, `agent/types.ts` 존재
-- **npm 패키지**: `@anthropic-ai/claude-code`, `@modelcontextprotocol/sdk`, `zod`
+- **EP01~EP04 required**: `config.ts`, `types.ts`, `db.ts`, `agent/types.ts` must exist
+- **npm packages**: `@anthropic-ai/claude-code`, `@modelcontextprotocol/sdk`, `zod`
 
-## 단계별 지시
+## Step-by-Step Instructions
 
-### Step 1: `src/mcp/tools.ts` 생성
+### Step 1: Create `src/mcp/tools.ts`
 
-MCP 서버 팩토리 함수입니다. `chatId`와 `chatFolder`를 클로저로 캡처하여 각 도구가 올바른 채팅 컨텍스트에서 동작합니다.
+The MCP server factory function. Captures `chatId` and `chatFolder` via closure so each tool operates in the correct chat context.
 
 ```typescript
 // src/mcp/tools.ts
@@ -69,28 +69,28 @@ export function createPhoneClawMcpServer(chatId: string, chatFolder: string, cal
     tools: [
       tool(
         'send_message',
-        '실행 중 사용자에게 즉시 메시지를 보냅니다. 진행 상황 업데이트나 여러 메시지를 보낼 때 사용하세요.',
-        { text: z.string().describe('보낼 메시지 텍스트') },
+        'Sends a message to the user immediately during execution. Use for progress updates or sending multiple messages.',
+        { text: z.string().describe('Message text to send') },
         async (args) => {
           await callbacks.sendMessage(chatId, args.text);
-          return { content: [{ type: 'text' as const, text: '메시지 전송 완료.' }] };
+          return { content: [{ type: 'text' as const, text: 'Message sent.' }] };
         },
       ),
 
       tool(
         'schedule_task',
-        `예약 작업을 등록합니다. cron/interval/once 타입 지원.
-- cron: "0 9 * * *" (매일 오전 9시)
-- interval: "3600000" (1시간마다, 밀리초)
-- once: "2026-02-01T15:30:00" (1회, 로컬 시간)`,
+        `Registers a scheduled task. Supports cron/interval/once types.
+- cron: "0 9 * * *" (every day at 9 AM)
+- interval: "3600000" (every hour, in milliseconds)
+- once: "2026-02-01T15:30:00" (one-time, local time)`,
         {
-          prompt: z.string().describe('작업 실행 시 Agent에게 전달할 프롬프트'),
+          prompt: z.string().describe('Prompt to pass to the Agent when the task runs'),
           schedule_type: z.enum(['cron', 'interval', 'once']),
-          schedule_value: z.string().describe('스케줄 값'),
+          schedule_value: z.string().describe('Schedule value'),
         },
         async (args) => {
           if (!callbacks.scheduleTask) {
-            return { content: [{ type: 'text' as const, text: '스케줄러가 활성화되지 않았습니다.' }], isError: true };
+            return { content: [{ type: 'text' as const, text: 'Scheduler is not enabled.' }], isError: true };
           }
           const taskId = await callbacks.scheduleTask({
             prompt: args.prompt,
@@ -99,59 +99,59 @@ export function createPhoneClawMcpServer(chatId: string, chatFolder: string, cal
             chatId,
             chatFolder,
           });
-          return { content: [{ type: 'text' as const, text: `작업 예약 완료 (ID: ${taskId})` }] };
+          return { content: [{ type: 'text' as const, text: `Task scheduled (ID: ${taskId})` }] };
         },
       ),
 
       tool(
         'list_tasks',
-        '현재 채팅의 예약 작업 목록을 조회합니다.',
+        'Lists scheduled tasks for the current chat.',
         {},
         async () => {
           if (!callbacks.listTasks) {
-            return { content: [{ type: 'text' as const, text: '스케줄러가 활성화되지 않았습니다.' }] };
+            return { content: [{ type: 'text' as const, text: 'Scheduler is not enabled.' }] };
           }
           const list = callbacks.listTasks(chatFolder);
-          return { content: [{ type: 'text' as const, text: list || '예약된 작업이 없습니다.' }] };
+          return { content: [{ type: 'text' as const, text: list || 'No scheduled tasks.' }] };
         },
       ),
 
       tool(
         'pause_task',
-        '예약 작업을 일시 정지합니다.',
-        { task_id: z.string().describe('작업 ID') },
+        'Pauses a scheduled task.',
+        { task_id: z.string().describe('Task ID') },
         async (args) => {
           if (!callbacks.updateTaskStatus) {
-            return { content: [{ type: 'text' as const, text: '스케줄러가 활성화되지 않았습니다.' }], isError: true };
+            return { content: [{ type: 'text' as const, text: 'Scheduler is not enabled.' }], isError: true };
           }
           await callbacks.updateTaskStatus(args.task_id, 'paused');
-          return { content: [{ type: 'text' as const, text: `작업 ${args.task_id} 일시정지.` }] };
+          return { content: [{ type: 'text' as const, text: `Task ${args.task_id} paused.` }] };
         },
       ),
 
       tool(
         'resume_task',
-        '일시정지된 작업을 재개합니다.',
-        { task_id: z.string().describe('작업 ID') },
+        'Resumes a paused task.',
+        { task_id: z.string().describe('Task ID') },
         async (args) => {
           if (!callbacks.updateTaskStatus) {
-            return { content: [{ type: 'text' as const, text: '스케줄러가 활성화되지 않았습니다.' }], isError: true };
+            return { content: [{ type: 'text' as const, text: 'Scheduler is not enabled.' }], isError: true };
           }
           await callbacks.updateTaskStatus(args.task_id, 'active');
-          return { content: [{ type: 'text' as const, text: `작업 ${args.task_id} 재개.` }] };
+          return { content: [{ type: 'text' as const, text: `Task ${args.task_id} resumed.` }] };
         },
       ),
 
       tool(
         'cancel_task',
-        '예약 작업을 취소하고 삭제합니다.',
-        { task_id: z.string().describe('작업 ID') },
+        'Cancels and deletes a scheduled task.',
+        { task_id: z.string().describe('Task ID') },
         async (args) => {
           if (!callbacks.cancelTask) {
-            return { content: [{ type: 'text' as const, text: '스케줄러가 활성화되지 않았습니다.' }], isError: true };
+            return { content: [{ type: 'text' as const, text: 'Scheduler is not enabled.' }], isError: true };
           }
           await callbacks.cancelTask(args.task_id);
-          return { content: [{ type: 'text' as const, text: `작업 ${args.task_id} 취소됨.` }] };
+          return { content: [{ type: 'text' as const, text: `Task ${args.task_id} cancelled.` }] };
         },
       ),
     ],
@@ -159,14 +159,14 @@ export function createPhoneClawMcpServer(chatId: string, chatFolder: string, cal
 }
 ```
 
-### Step 2: `src/agent/local-runner.ts`에 MCP 통합
+### Step 2: Integrate MCP into `src/agent/local-runner.ts`
 
-Local Runner에서 MCP 서버를 생성하고 Claude Code `query()`에 주입합니다. 핵심 통합 포인트:
+Create the MCP server in the Local Runner and inject it into the Claude Code `query()` call. Key integration points:
 
-1. **`setMcpCallbacks()`**: 외부(index.ts)에서 콜백 함수 주입
-2. **`createPhoneClawMcpServer()`**: 채팅별 MCP 서버 인스턴스 생성
-3. **`query({ mcpServers })`**: Agent 실행 시 MCP 서버 전달
-4. **`allowedTools: ['mcp__phoneclaw__*']`**: MCP 도구 허용 패턴
+1. **`setMcpCallbacks()`**: Inject callback functions from external code (index.ts)
+2. **`createPhoneClawMcpServer()`**: Create per-chat MCP server instances
+3. **`query({ mcpServers })`**: Pass MCP server when running the Agent
+4. **`allowedTools: ['mcp__phoneclaw__*']`**: MCP tool allow pattern
 
 ```typescript
 // src/agent/local-runner.ts
@@ -193,14 +193,14 @@ export class LocalAgentRunner implements AgentRunner {
     const chatDir = path.join(CHATS_DIR, chat.folder);
     fs.mkdirSync(chatDir, { recursive: true });
 
-    // 채팅별 CLAUDE.md
+    // Per-chat CLAUDE.md
     const claudeMdPath = path.join(chatDir, 'CLAUDE.md');
 
-    // 기존 세션 resume 또는 신규 생성
+    // Resume existing session or create new one
     const existingSessionId = input.sessionId || getSession(chat.folder);
 
-    // 글로벌 시스템 프롬프트 구성
-    let systemAppend = `당신의 이름은 ${BOT_NAME}입니다. Telegram 메시지에 한국어로 응답하세요. 간결하고 자연스럽게 대화하세요.`;
+    // Build global system prompt
+    let systemAppend = `Your name is ${BOT_NAME}. Respond to Telegram messages in Korean. Keep the conversation concise and natural.`;
     if (fs.existsSync(claudeMdPath)) {
       systemAppend += '\n\n' + fs.readFileSync(claudeMdPath, 'utf-8');
     }
@@ -209,7 +209,7 @@ export class LocalAgentRunner implements AgentRunner {
     let resultText = '';
     const timeout = input.timeout || AGENT_TIMEOUT;
 
-    // MCP 서버 생성 (send_message 등 도구 제공)
+    // Create MCP server (provides tools like send_message)
     const mcpServers: Record<string, any> = {};
     if (this.mcpCallbacks) {
       mcpServers.phoneclaw = createPhoneClawMcpServer(chat.chatId, chat.folder, this.mcpCallbacks);
@@ -237,13 +237,13 @@ export class LocalAgentRunner implements AgentRunner {
           abortController,
         },
       })) {
-        // 세션 초기화
+        // Session initialization
         if (message.type === 'system' && message.subtype === 'init') {
           sessionId = message.session_id;
-          logger.debug({ sessionId, chat: chat.folder }, 'Agent 세션 시작');
+          logger.debug({ sessionId, chat: chat.folder }, 'Agent session started');
         }
 
-        // 결과 수집
+        // Collect results
         if (message.type === 'result') {
           const text = 'result' in message ? (message as { result?: string }).result : null;
           if (text) {
@@ -255,26 +255,26 @@ export class LocalAgentRunner implements AgentRunner {
 
       clearTimeout(timer);
 
-      // 세션 ID 저장
+      // Save session ID
       if (sessionId) {
         setSession(chat.folder, sessionId);
       }
 
       const durationMs = Date.now() - startTime;
-      logger.info({ chat: chat.folder, durationMs, sessionId }, 'Agent 실행 완료');
+      logger.info({ chat: chat.folder, durationMs, sessionId }, 'Agent execution completed');
 
       return {
-        result: resultText || '(응답 없음)',
+        result: resultText || '(No response)',
         sessionId: sessionId || '',
         durationMs,
       };
     } catch (err) {
       const durationMs = Date.now() - startTime;
       const errorMsg = err instanceof Error ? err.message : String(err);
-      logger.error({ chat: chat.folder, err: errorMsg, durationMs }, 'Agent 실행 오류');
+      logger.error({ chat: chat.folder, err: errorMsg, durationMs }, 'Agent execution error');
 
       return {
-        result: `오류가 발생했습니다: ${errorMsg}`,
+        result: `An error occurred: ${errorMsg}`,
         sessionId: sessionId || '',
         durationMs,
       };
@@ -282,65 +282,65 @@ export class LocalAgentRunner implements AgentRunner {
   }
 
   async shutdown(): Promise<void> {
-    logger.info('LocalAgentRunner 종료');
+    logger.info('LocalAgentRunner shutting down');
   }
 }
 ```
 
-### Step 3: `index.ts`에서 MCP 콜백 연결 (EP05 참고)
+### Step 3: Connect MCP callbacks in `index.ts` (refer to EP05)
 
-`index.ts`의 `main()` 함수에서 LocalAgentRunner 생성 후 `setMcpCallbacks()`를 호출합니다. 이 부분은 EP05(message-loop)에서 이미 포함되어 있으므로, EP05를 먼저 완료한 후 이 스킬을 실행하세요.
+In the `main()` function of `index.ts`, call `setMcpCallbacks()` after creating the LocalAgentRunner. This part is already included in EP05 (message-loop), so complete EP05 first before running this skill.
 
-핵심 연결 코드:
+Key connection code:
 
 ```typescript
-// index.ts (EP05에서 생성됨) 중 관련 부분
+// index.ts (created in EP05) - relevant section
 const localRunner = new LocalAgentRunner();
 localRunner.setMcpCallbacks({
   sendMessage: (chatId, text) => channel.sendMessage(chatId, text),
   scheduleTask: async (data) => {
     const taskId = crypto.randomUUID().slice(0, 8);
-    // ... DB에 task 저장
+    // ... save task to DB
     return taskId;
   },
-  listTasks: (chatFolder) => { /* DB 조회 */ },
+  listTasks: (chatFolder) => { /* DB query */ },
   updateTaskStatus: async (taskId, status) => { updateTask(taskId, { status }); },
   cancelTask: async (taskId) => { deleteTask(taskId); },
 });
 agentRunner = localRunner;
 ```
 
-## MCP 도구 상세
+## MCP Tool Details
 
 ### send_message
 
-| 항목 | 설명 |
-|------|------|
-| 용도 | 실행 중 즉시 메시지 전송 |
-| 파라미터 | `text: string` |
-| 사용 예 | "데이터 분석 중입니다. 잠시 기다려주세요..." |
-| 내부 동작 | `callbacks.sendMessage(chatId, text)` -> `TelegramChannel.sendMessage()` |
+| Field | Description |
+|-------|-------------|
+| Purpose | Send a message immediately during execution |
+| Parameters | `text: string` |
+| Usage example | "Analyzing data. Please wait..." |
+| Internal flow | `callbacks.sendMessage(chatId, text)` -> `TelegramChannel.sendMessage()` |
 
 ### schedule_task
 
-| 항목 | 설명 |
-|------|------|
-| 용도 | 반복/예약 작업 등록 |
-| 파라미터 | `prompt`, `schedule_type` (cron/interval/once), `schedule_value` |
-| cron 예시 | `"0 9 * * *"` - 매일 오전 9시 |
-| interval 예시 | `"3600000"` - 1시간마다 (밀리초) |
-| once 예시 | `"2026-02-01T15:30:00"` - 1회 실행 |
+| Field | Description |
+|-------|-------------|
+| Purpose | Register a recurring/scheduled task |
+| Parameters | `prompt`, `schedule_type` (cron/interval/once), `schedule_value` |
+| cron example | `"0 9 * * *"` - every day at 9 AM |
+| interval example | `"3600000"` - every hour (in milliseconds) |
+| once example | `"2026-02-01T15:30:00"` - one-time execution |
 
 ### list_tasks / pause_task / resume_task / cancel_task
 
-예약 작업 CRUD 도구입니다. `chatFolder` 기준으로 해당 채팅의 작업만 조회/관리합니다.
+CRUD tools for scheduled tasks. Queries and manages only the tasks belonging to the relevant chat based on `chatFolder`.
 
-## 검증
+## Verification
 
 ```bash
-# 타입 체크
+# Type check
 npx tsc --noEmit
 
-# 파일 존재 확인
+# Verify files exist
 ls -la src/mcp/tools.ts src/agent/local-runner.ts
 ```

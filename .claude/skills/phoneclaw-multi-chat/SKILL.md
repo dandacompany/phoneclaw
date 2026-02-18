@@ -1,26 +1,26 @@
 ---
 name: phoneclaw-multi-chat
-description: "EP09 - PhoneClaw 다중 채팅 지원 구현"
+description: "EP09 - PhoneClaw Multi-Chat Support Implementation"
 ---
 
-# EP09: 다중 채팅 지원 (phoneclaw-multi-chat)
+# EP09: Multi-Chat Support (phoneclaw-multi-chat)
 
-## 개요
+## Overview
 
-PhoneClaw 봇이 여러 Telegram 채팅(개인 DM, 그룹)을 동시에 관리할 수 있도록 합니다. 각 채팅은 고유한 폴더를 가지며, 독립적인 CLAUDE.md 설정과 로그를 유지합니다. `registerChat`으로 채팅을 등록하고 `unregisterChat`으로 해제하며, 등록 정보는 SQLite DB에 영구 저장됩니다.
+Enables the PhoneClaw bot to manage multiple Telegram chats (personal DMs, groups) simultaneously. Each chat has a unique folder with independent CLAUDE.md settings and logs. Chats are registered with `registerChat` and unregistered with `unregisterChat`, and registration data is permanently stored in the SQLite DB.
 
-## 의존성
+## Dependencies
 
-- **EP01~EP08 완료 필수**: 프로젝트 스캐폴드, 데이터베이스, Telegram 채널, Agent Runner가 구현되어 있어야 합니다.
-- `src/types.ts`에 `RegisteredChat` 인터페이스가 정의되어 있어야 합니다.
-- `src/db.ts`에 `setRegisteredChat`, `removeRegisteredChat`, `getAllRegisteredChats` 함수가 존재해야 합니다.
-- `src/config.ts`에 `CHATS_DIR` 상수가 정의되어 있어야 합니다.
+- **EP01~EP08 must be completed**: Project scaffold, database, Telegram channel, and Agent Runner must be implemented.
+- The `RegisteredChat` interface must be defined in `src/types.ts`.
+- `setRegisteredChat`, `removeRegisteredChat`, and `getAllRegisteredChats` functions must exist in `src/db.ts`.
+- The `CHATS_DIR` constant must be defined in `src/config.ts`.
 
-## 단계별 지시
+## Step-by-Step Instructions
 
-### 1단계: 타입 확인
+### Step 1: Verify Types
 
-`src/types.ts`에 다음 인터페이스가 있는지 확인합니다:
+Check that the following interface exists in `src/types.ts`:
 
 ```typescript
 export interface RegisteredChat {
@@ -32,9 +32,9 @@ export interface RegisteredChat {
 }
 ```
 
-### 2단계: DB 함수 확인
+### Step 2: Verify DB Functions
 
-`src/db.ts`에 다음 함수들이 있는지 확인합니다:
+Check that the following functions exist in `src/db.ts`:
 
 ```typescript
 export function setRegisteredChat(chat: RegisteredChat): void {
@@ -66,16 +66,16 @@ export function getAllRegisteredChats(): Record<string, RegisteredChat> {
 }
 ```
 
-### 3단계: `src/index.ts`에 다중 채팅 로직 구현
+### Step 3: Implement Multi-Chat Logic in `src/index.ts`
 
-`src/index.ts`에 다음 함수들과 상태 관리 코드가 포함되어 있어야 합니다:
+The following functions and state management code must be included in `src/index.ts`:
 
-**상태 변수** (파일 상단):
+**State variable** (top of file):
 ```typescript
 let registeredChats: Record<string, RegisteredChat> = {};
 ```
 
-**loadState() 함수에서 채팅 로드**:
+**Load chats in loadState() function**:
 ```typescript
 function loadState(): void {
   lastTimestamp = getRouterState('last_timestamp') || '';
@@ -83,15 +83,15 @@ function loadState(): void {
   try {
     lastAgentTimestamp = agentTs ? JSON.parse(agentTs) : {};
   } catch {
-    logger.warn('last_agent_timestamp 손상, 초기화');
+    logger.warn('last_agent_timestamp corrupted, resetting');
     lastAgentTimestamp = {};
   }
   registeredChats = getAllRegisteredChats();
-  logger.info({ chatCount: Object.keys(registeredChats).length }, '상태 로드 완료');
+  logger.info({ chatCount: Object.keys(registeredChats).length }, 'State loaded');
 }
 ```
 
-**registerChat 함수**:
+**registerChat function**:
 ```typescript
 function registerChat(chatId: string, name: string, folder: string, requiresTrigger: boolean): void {
   const chat: RegisteredChat = {
@@ -104,30 +104,30 @@ function registerChat(chatId: string, name: string, folder: string, requiresTrig
   registeredChats[chatId] = chat;
   setRegisteredChat(chat);
 
-  // 채팅 폴더 생성
+  // Create chat folder
   const chatDir = path.join(CHATS_DIR, folder);
   fs.mkdirSync(path.join(chatDir, 'logs'), { recursive: true });
 
-  // 기본 CLAUDE.md 생성
+  // Create default CLAUDE.md
   const claudeMdPath = path.join(chatDir, 'CLAUDE.md');
   if (!fs.existsSync(claudeMdPath)) {
-    fs.writeFileSync(claudeMdPath, `# ${name}\n\n이 채팅의 AI 비서 설정입니다.\n`);
+    fs.writeFileSync(claudeMdPath, `# ${name}\n\nAI assistant settings for this chat.\n`);
   }
 
-  logger.info({ chatId, name, folder }, '채팅 등록 완료');
+  logger.info({ chatId, name, folder }, 'Chat registered');
 }
 ```
 
-**unregisterChat 함수**:
+**unregisterChat function**:
 ```typescript
 function unregisterChat(chatId: string): void {
   delete registeredChats[chatId];
   removeRegisteredChat(chatId);
-  logger.info({ chatId }, '채팅 등록 해제');
+  logger.info({ chatId }, 'Chat unregistered');
 }
 ```
 
-**main() 함수에서 폴더 생성**:
+**Create folders in main() function**:
 ```typescript
 async function main(): Promise<void> {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -136,67 +136,67 @@ async function main(): Promise<void> {
 }
 ```
 
-## 핵심 동작 원리
+## Core Behavior
 
-1. **채팅 등록 흐름**:
-   - Telegram `/register` 명령 -> `registerChat()` 호출
-   - 인메모리 `registeredChats` 객체에 추가 + DB에 영구 저장
-   - `chats/{folder}/` 디렉토리 생성 (하위 `logs/` 포함)
-   - `CLAUDE.md` 기본 파일 생성 (채팅별 Agent 설정)
+1. **Chat registration flow**:
+   - Telegram `/register` command -> calls `registerChat()`
+   - Added to in-memory `registeredChats` object + permanently saved to DB
+   - `chats/{folder}/` directory created (including `logs/` subdirectory)
+   - Default `CLAUDE.md` file created (per-chat Agent settings)
 
-2. **채팅 해제 흐름**:
-   - Telegram `/unregister` 명령 -> `unregisterChat()` 호출
-   - 인메모리 객체에서 삭제 + DB에서 삭제
-   - 폴더는 삭제하지 않음 (로그 보존)
+2. **Chat unregistration flow**:
+   - Telegram `/unregister` command -> calls `unregisterChat()`
+   - Removed from in-memory object + deleted from DB
+   - Folder is not deleted (logs are preserved)
 
-3. **채팅별 독립 관리**:
-   - 각 채팅은 고유한 `folder`를 가짐 (폴더명 = 채팅 이름 기반 정규화)
-   - 채팅별 CLAUDE.md로 Agent 동작을 개별 설정 가능
-   - 채팅별 `lastAgentTimestamp`로 메시지 커서 독립 관리
-   - `requiresTrigger`: 그룹 채팅은 `@BotName` 멘션 필요, 1:1은 모든 메시지 응답
+3. **Independent per-chat management**:
+   - Each chat has a unique `folder` (folder name = normalized from chat name)
+   - Agent behavior can be individually configured via per-chat CLAUDE.md
+   - Independent message cursor management via per-chat `lastAgentTimestamp`
+   - `requiresTrigger`: Group chats require `@BotName` mention; 1:1 chats respond to all messages
 
-4. **폴더명 생성 규칙** (telegram.ts의 `/register` 핸들러):
-   - 채팅 이름을 소문자로 변환
-   - 알파벳, 숫자, 한글 외 문자를 `-`로 치환
-   - 앞뒤 `-` 제거, 최대 30자
-   - 폴더명이 비면 `chat-{chatId}` 사용
+4. **Folder name generation rules** (`/register` handler in telegram.ts):
+   - Convert chat name to lowercase
+   - Replace characters other than alphanumeric and Korean with `-`
+   - Remove leading/trailing `-`, max 30 characters
+   - If folder name is empty, use `chat-{chatId}`
 
-5. **크래시 복구**:
-   - 앱 재시작 시 `loadState()`에서 `getAllRegisteredChats()`로 DB에서 복원
-   - `recoverPendingMessages()`로 미처리 메시지 재확인
+5. **Crash recovery**:
+   - On app restart, `loadState()` restores from DB via `getAllRegisteredChats()`
+   - `recoverPendingMessages()` rechecks unprocessed messages
 
-## 디렉토리 구조 예시
+## Directory Structure Example
 
 ```
 chats/
   dante-private/
-    CLAUDE.md          # 이 채팅의 Agent 설정
-    logs/              # 실행 로그
+    CLAUDE.md          # Agent settings for this chat
+    logs/              # Execution logs
   my-team-group/
     CLAUDE.md
     logs/
 ```
 
-## 검증
+## Verification
 
-1. TypeScript 컴파일 확인:
+1. Verify TypeScript compilation:
 ```bash
 cd /Users/dante/workspace/dante-code/projects/phoneclaw && npx tsc --noEmit
 ```
 
-2. `src/index.ts`에서 `registerChat`, `unregisterChat` 함수가 정의되어 있는지 확인
+2. Verify that `registerChat` and `unregisterChat` functions are defined in `src/index.ts`
 
-3. `registerChat` 호출 시 다음이 수행되는지 확인:
-   - `registeredChats` 객체에 추가
-   - `setRegisteredChat(chat)` DB 저장
-   - `chats/{folder}/logs/` 디렉토리 생성
-   - `CLAUDE.md` 파일 생성
+3. Verify that when `registerChat` is called, the following are performed:
+   - Added to `registeredChats` object
+   - Saved to DB via `setRegisteredChat(chat)`
+   - `chats/{folder}/logs/` directory created
+   - `CLAUDE.md` file created
 
-4. `unregisterChat` 호출 시 다음이 수행되는지 확인:
-   - `registeredChats` 객체에서 삭제
-   - `removeRegisteredChat(chatId)` DB 삭제
+4. Verify that when `unregisterChat` is called, the following are performed:
+   - Removed from `registeredChats` object
+   - Deleted from DB via `removeRegisteredChat(chatId)`
 
-5. 테스트 실행:
+5. Run tests:
 ```bash
 cd /Users/dante/workspace/dante-code/projects/phoneclaw && npm test
 ```

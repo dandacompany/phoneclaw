@@ -1,4 +1,4 @@
-// 스킬 순차 실행 엔진 + 에이전틱 에러 복구
+// Sequential skill execution engine + agentic error recovery
 import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
@@ -10,31 +10,31 @@ import { logSkillStart, logSkillResult, logRetryAttempt, logTscFix } from '../ui
 import { saveProgress, type SetupProgress } from './progress-store.js';
 import { SKILL_SYSTEM_CONTEXT } from './skill-context.js';
 
-// 스킬 실행 순서 (의존성 그래프 기반)
+// Skill execution order (based on dependency graph)
 export const SKILL_ORDER: SkillMeta[] = [
-  { name: 'phoneclaw-scaffold',       episode: 'EP01', title: '프로젝트 기반 구축' },
-  { name: 'phoneclaw-telegram',       episode: 'EP02', title: 'Telegram 봇 연결' },
-  { name: 'phoneclaw-database',       episode: 'EP03', title: 'SQLite 데이터베이스' },
+  { name: 'phoneclaw-scaffold',       episode: 'EP01', title: 'Project Scaffolding' },
+  { name: 'phoneclaw-telegram',       episode: 'EP02', title: 'Telegram Bot Connection' },
+  { name: 'phoneclaw-database',       episode: 'EP03', title: 'SQLite Database' },
   { name: 'phoneclaw-agent-local',    episode: 'EP04', title: 'Claude Agent' },
-  { name: 'phoneclaw-message-loop',   episode: 'EP05', title: '메인 처리 루프' },
-  { name: 'phoneclaw-mcp-tools',      episode: 'EP06', title: 'MCP 도구' },
-  { name: 'phoneclaw-session-memory', episode: 'EP07', title: '대화 기억' },
-  { name: 'phoneclaw-scheduler',      episode: 'EP08', title: '예약 작업' },
-  { name: 'phoneclaw-multi-chat',     episode: 'EP09', title: '다중 채팅' },
-  { name: 'phoneclaw-admin-commands', episode: 'EP10', title: '관리 명령어' },
-  { name: 'phoneclaw-production',     episode: 'EP11', title: '프로덕션 배포' },
+  { name: 'phoneclaw-message-loop',   episode: 'EP05', title: 'Main Message Loop' },
+  { name: 'phoneclaw-mcp-tools',      episode: 'EP06', title: 'MCP Tools' },
+  { name: 'phoneclaw-session-memory', episode: 'EP07', title: 'Session Memory' },
+  { name: 'phoneclaw-scheduler',      episode: 'EP08', title: 'Scheduled Tasks' },
+  { name: 'phoneclaw-multi-chat',     episode: 'EP09', title: 'Multi-Chat Support' },
+  { name: 'phoneclaw-admin-commands', episode: 'EP10', title: 'Admin Commands' },
+  { name: 'phoneclaw-production',     episode: 'EP11', title: 'Production Deployment' },
 ];
 
 const MAX_AUTO_RETRIES = 2;
 
-/** tsc --noEmit 실행 후 에러 출력 반환. 성공 시 null */
+/** Run tsc --noEmit and return error output. Returns null on success. */
 function runTypeCheck(cwd: string): string | null {
   try {
     execFileSync('npx', ['tsc', '--noEmit'], { cwd, stdio: 'pipe', timeout: 60_000 });
     return null;
   } catch (err: unknown) {
     if (err && typeof err === 'object') {
-      // tsc는 에러를 stdout으로 출력하지만, 일부 환경에서 stderr로 갈 수 있음
+      // tsc outputs errors to stdout, but may use stderr in some environments
       const e = err as { stdout?: Buffer; stderr?: Buffer };
       const stdout = e.stdout?.toString().trim() || '';
       const stderr = e.stderr?.toString().trim() || '';
@@ -44,7 +44,7 @@ function runTypeCheck(cwd: string): string | null {
   }
 }
 
-/** SDK query()로 스킬 1개 실행 */
+/** Execute a single skill via SDK query() */
 async function executeSkill(
   skill: SkillMeta,
   cwd: string,
@@ -77,7 +77,7 @@ async function executeSkill(
   return { resultText, newSessionId };
 }
 
-/** 사용자에게 에러 복구 방법을 묻는다 */
+/** Ask user how to handle error recovery */
 async function askUserDecision(
   lang: Language,
   skill: SkillMeta,
@@ -99,7 +99,7 @@ async function askUserDecision(
   return result;
 }
 
-/** 스킬 1개 실행 + 에러 복구 */
+/** Execute a single skill + error recovery */
 async function runSingleSkill(
   skill: SkillMeta,
   lang: Language,
@@ -120,8 +120,8 @@ async function runSingleSkill(
 
   const skillContent = fs.readFileSync(skillPath, 'utf-8');
   const initialPrompt = [
-    '다음 스킬의 지시에 따라 코드를 생성/수정하세요.',
-    '완료 후 검증 단계를 실행하여 결과를 확인하세요.',
+    'Follow the instructions in this skill to generate/modify code.',
+    'After completion, run the verification steps to confirm the results.',
     '',
     '---',
     skillContent,
@@ -131,12 +131,12 @@ async function runSingleSkill(
   let sessionId: string | undefined;
   let lastError = '';
 
-  // 최초 실행
+  // Initial execution
   try {
     const { newSessionId } = await executeSkill(skill, cwd, initialPrompt);
     sessionId = newSessionId;
 
-    // tsc 체크
+    // tsc check
     const tscError = runTypeCheck(cwd);
     if (!tscError) {
       return {
@@ -151,17 +151,17 @@ async function runSingleSkill(
     lastError = err instanceof Error ? err.message : String(err);
   }
 
-  // 자동 복구 루프 (Layer 1 + Layer 2 통합, 최대 MAX_AUTO_RETRIES회)
+  // Auto-recovery loop (Layer 1 + Layer 2 unified, max MAX_AUTO_RETRIES)
   while (retryCount < MAX_AUTO_RETRIES) {
     retryCount++;
     logRetryAttempt(lang, skill, retryCount);
 
     const retryPrompt = lastError.includes('compilation')
-      ? `TypeScript 컴파일 오류를 수정하세요:\n${lastError}`
+      ? `Fix the TypeScript compilation errors:\n${lastError}`
       : [
-          '이전 스킬 실행 중 다음 오류가 발생했습니다:',
+          'The following error occurred during the previous skill execution:',
           lastError,
-          '오류를 분석하고 수정하세요.',
+          'Analyze and fix the error.',
         ].join('\n');
 
     try {
@@ -181,7 +181,7 @@ async function runSingleSkill(
     }
   }
 
-  // Layer 3: 사용자 선택
+  // Layer 3: User decision
   const decision = await askUserDecision(lang, skill, lastError);
   if (decision === 'retry') {
     try {
@@ -223,7 +223,7 @@ async function runSingleSkill(
   };
 }
 
-/** 11개 스킬 전체 순차 실행 (재개 지원) */
+/** Execute all 11 skills sequentially (with resume support) */
 export async function runAllSkills(
   lang: Language,
   cwd: string,
@@ -236,7 +236,7 @@ export async function runAllSkills(
   const results: SkillRunResult[] = [...previousResults];
   const total = SKILL_ORDER.length;
 
-  // 재개 시 완료된 스킬 건너뛰기
+  // Skip completed skills on resume
   if (completedSkills.length > 0) {
     const msgFn = t(lang, 'resumeSkillsFrom');
     p.log.info(msgFn(completedSkills.length));
@@ -245,7 +245,7 @@ export async function runAllSkills(
   for (let i = 0; i < total; i++) {
     const skill = SKILL_ORDER[i];
 
-    // 이미 완료된 스킬 건너뛰기
+    // Skip already completed skills
     if (completedSkills.includes(skill.name)) {
       continue;
     }
@@ -256,7 +256,7 @@ export async function runAllSkills(
     results.push(result);
     logSkillResult(lang, result);
 
-    // 진행 상태 저장
+    // Save progress
     const currentCompleted = results
       .filter((r) => r.success)
       .map((r) => r.skill.name);
@@ -270,7 +270,7 @@ export async function runAllSkills(
     };
     saveProgress(cwd, progress);
 
-    // abort 시 나머지 스킬 중단
+    // Stop remaining skills on abort
     if (result.error === 'aborted') {
       break;
     }

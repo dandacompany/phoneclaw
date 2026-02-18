@@ -1,26 +1,26 @@
 ---
 name: phoneclaw-message-loop
-description: "PhoneClaw EP05 - 메인 메시지 처리 루프. Telegram 메시지 수신 -> DB 저장 -> 큐 -> Agent 실행 -> 응답 전송까지의 전체 흐름을 구성하는 핵심 파일을 자동 생성합니다."
+description: "PhoneClaw EP05 - Main message processing loop. Automatically generates the core files that handle the entire flow: Telegram message reception -> DB storage -> queue -> Agent execution -> response delivery."
 ---
 
 # EP05: PhoneClaw Message Loop
 
-Telegram 메시지를 수신하여 Agent에게 전달하고 응답을 반환하는 **메인 처리 루프**를 구성합니다.
+Receives Telegram messages, routes them to the Agent, and returns responses via the **main processing loop**.
 
-## 개요
+## Overview
 
-이 에피소드는 PhoneClaw의 핵심 동작 흐름을 담당하는 3개 파일을 생성합니다:
+This episode generates 3 files that handle PhoneClaw's core operational flow:
 
-1. **`src/index.ts`** - 메인 엔트리포인트. Telegram 채널, Agent Runner, MessageQueue를 조합하여 전체 시스템을 부트스트랩합니다.
-2. **`src/router.ts`** - 메시지 포맷팅(XML 구조) 및 내부 태그 제거 유틸리티.
-3. **`src/queue.ts`** - 채팅별 동시실행 제어 큐. 한 채팅에 Agent가 이미 실행 중이면 대기열에 추가하고, 전체 동시실행 수를 제한합니다.
+1. **`src/index.ts`** - Main entrypoint. Bootstraps the entire system by composing the Telegram channel, Agent Runner, and MessageQueue.
+2. **`src/router.ts`** - Message formatting (XML structure) and internal tag removal utilities.
+3. **`src/queue.ts`** - Per-chat concurrency control queue. If an Agent is already running for a chat, new messages are queued; total concurrent execution is capped.
 
-### 처리 흐름
+### Processing Flow
 
 ```
-Telegram 메시지 수신
-  -> TelegramChannel.onMessage -> storeMessage(DB 저장)
-  -> startMessageLoop (2초 폴링) -> getNewMessages
+Telegram message received
+  -> TelegramChannel.onMessage -> storeMessage(DB storage)
+  -> startMessageLoop (2-second polling) -> getNewMessages
   -> queue.enqueueMessageCheck(chatId)
   -> processMessages(chatId)
     -> getMessagesSince(chatId, cursor) -> formatMessages(XML)
@@ -29,16 +29,16 @@ Telegram 메시지 수신
     -> setSession(folder, sessionId)
 ```
 
-## 의존성
+## Dependencies
 
-- **EP01~EP04 완료 필수**: `config.ts`, `types.ts`, `db.ts`, `logger.ts`, `channel/telegram.ts`, `agent/local-runner.ts`, `agent/types.ts`, `mcp/tools.ts`, `scheduler.ts`가 이미 존재해야 합니다.
-- **npm 패키지**: `grammy`, `better-sqlite3`, `pino`, `@anthropic-ai/claude-code`, `zod`, `cron-parser`
+- **EP01~EP04 required**: `config.ts`, `types.ts`, `db.ts`, `logger.ts`, `channel/telegram.ts`, `agent/local-runner.ts`, `agent/types.ts`, `mcp/tools.ts`, `scheduler.ts` must already exist.
+- **npm packages**: `grammy`, `better-sqlite3`, `pino`, `@anthropic-ai/claude-code`, `zod`, `cron-parser`
 
-## 단계별 지시
+## Step-by-Step Instructions
 
-### Step 1: `src/router.ts` 생성
+### Step 1: Create `src/router.ts`
 
-메시지를 XML 형식으로 포맷팅하고, Agent 응답에서 `<internal>` 태그를 제거하는 유틸리티입니다.
+Utility for formatting messages into XML and stripping `<internal>` tags from Agent responses.
 
 ```typescript
 // src/router.ts
@@ -64,9 +64,9 @@ export function stripInternalTags(text: string): string {
 }
 ```
 
-### Step 2: `src/queue.ts` 생성
+### Step 2: Create `src/queue.ts`
 
-채팅별 동시실행을 제어하는 메시지 큐입니다. `MAX_CONCURRENT_AGENTS` 설정에 따라 전체 동시 Agent 실행 수를 제한하고, 같은 채팅에 대해서는 순차 실행을 보장합니다.
+A message queue that controls per-chat concurrency. Limits total concurrent Agent executions based on the `MAX_CONCURRENT_AGENTS` setting, and guarantees sequential execution within the same chat.
 
 ```typescript
 // src/queue.ts
@@ -108,20 +108,20 @@ export class MessageQueue {
 
     const state = this.getChat(chatId);
 
-    // 이미 실행 중이면 대기열에 추가
+    // If already running, add to pending queue
     if (state.active) {
       state.pendingMessages = true;
-      logger.debug({ chatId }, 'Agent 실행 중, 메시지 대기열 추가');
+      logger.debug({ chatId }, 'Agent running, message added to pending queue');
       return;
     }
 
-    // 동시 실행 제한
+    // Concurrency limit
     if (this.activeCount >= MAX_CONCURRENT_AGENTS) {
       state.pendingMessages = true;
       if (!this.waitingChats.includes(chatId)) {
         this.waitingChats.push(chatId);
       }
-      logger.debug({ chatId, activeCount: this.activeCount }, '동시실행 제한, 대기열 추가');
+      logger.debug({ chatId, activeCount: this.activeCount }, 'Concurrency limit reached, added to waiting queue');
       return;
     }
 
@@ -134,14 +134,14 @@ export class MessageQueue {
     state.pendingMessages = false;
     this.activeCount++;
 
-    logger.debug({ chatId, activeCount: this.activeCount }, 'Agent 실행 시작');
+    logger.debug({ chatId, activeCount: this.activeCount }, 'Agent execution started');
 
     try {
       if (this.processMessagesFn) {
         await this.processMessagesFn(chatId);
       }
     } catch (err) {
-      logger.error({ chatId, err }, '메시지 처리 오류');
+      logger.error({ chatId, err }, 'Message processing error');
     } finally {
       state.active = false;
       this.activeCount--;
@@ -158,7 +158,7 @@ export class MessageQueue {
       return;
     }
 
-    // 대기 중인 다른 채팅 처리
+    // Process other waiting chats
     this.drainWaiting();
   }
 
@@ -174,21 +174,21 @@ export class MessageQueue {
 
   async shutdown(): Promise<void> {
     this.shuttingDown = true;
-    logger.info({ activeCount: this.activeCount }, 'MessageQueue 종료');
+    logger.info({ activeCount: this.activeCount }, 'MessageQueue shutting down');
   }
 }
 ```
 
-### Step 3: `src/index.ts` 생성
+### Step 3: Create `src/index.ts`
 
-메인 엔트리포인트입니다. 모든 컴포넌트를 조합하여 시스템을 시작합니다.
+The main entrypoint. Composes all components to start the system.
 
-주요 역할:
-- DB 초기화 및 상태 로드/저장 (`router_state` 테이블)
-- 채팅 등록/해제 (`/register`, `/unregister`)
-- 메시지 폴링 루프 (2초 간격)
-- 메시지 처리: 트리거 패턴 확인 -> 커서 전진 -> Agent 실행 -> 응답 전송
-- 크래시 복구: 미처리 메시지 큐 재등록
+Key responsibilities:
+- DB initialization and state load/save (`router_state` table)
+- Chat registration/unregistration (`/register`, `/unregister`)
+- Message polling loop (2-second interval)
+- Message processing: check trigger pattern -> advance cursor -> run Agent -> send response
+- Crash recovery: re-enqueue unprocessed messages
 - Graceful shutdown: SIGTERM/SIGINT
 
 ```typescript
@@ -231,7 +231,7 @@ import { logger } from './logger.js';
 import type { AgentRunner } from './agent/types.js';
 import type { NewMessage, RegisteredChat, ScheduledTask } from './types.js';
 
-// === 상태 ===
+// === State ===
 let lastTimestamp = '';
 let lastAgentTimestamp: Record<string, string> = {};
 let registeredChats: Record<string, RegisteredChat> = {};
@@ -240,7 +240,7 @@ let channel: TelegramChannel;
 let agentRunner: AgentRunner;
 const queue = new MessageQueue();
 
-// === 상태 관리 ===
+// === State Management ===
 
 function loadState(): void {
   lastTimestamp = getRouterState('last_timestamp') || '';
@@ -248,11 +248,11 @@ function loadState(): void {
   try {
     lastAgentTimestamp = agentTs ? JSON.parse(agentTs) : {};
   } catch {
-    logger.warn('last_agent_timestamp 손상, 초기화');
+    logger.warn('last_agent_timestamp corrupted, resetting');
     lastAgentTimestamp = {};
   }
   registeredChats = getAllRegisteredChats();
-  logger.info({ chatCount: Object.keys(registeredChats).length }, '상태 로드 완료');
+  logger.info({ chatCount: Object.keys(registeredChats).length }, 'State loaded');
 }
 
 function saveState(): void {
@@ -260,7 +260,7 @@ function saveState(): void {
   setRouterState('last_agent_timestamp', JSON.stringify(lastAgentTimestamp));
 }
 
-// === 채팅 등록 ===
+// === Chat Registration ===
 
 function registerChat(chatId: string, name: string, folder: string, requiresTrigger: boolean): void {
   const chat: RegisteredChat = {
@@ -273,26 +273,26 @@ function registerChat(chatId: string, name: string, folder: string, requiresTrig
   registeredChats[chatId] = chat;
   setRegisteredChat(chat);
 
-  // 채팅 폴더 생성
+  // Create chat folder
   const chatDir = path.join(CHATS_DIR, folder);
   fs.mkdirSync(path.join(chatDir, 'logs'), { recursive: true });
 
-  // 기본 CLAUDE.md 생성
+  // Create default CLAUDE.md
   const claudeMdPath = path.join(chatDir, 'CLAUDE.md');
   if (!fs.existsSync(claudeMdPath)) {
-    fs.writeFileSync(claudeMdPath, `# ${name}\n\n이 채팅의 AI 비서 설정입니다.\n`);
+    fs.writeFileSync(claudeMdPath, `# ${name}\n\nAI assistant configuration for this chat.\n`);
   }
 
-  logger.info({ chatId, name, folder }, '채팅 등록 완료');
+  logger.info({ chatId, name, folder }, 'Chat registered');
 }
 
 function unregisterChat(chatId: string): void {
   delete registeredChats[chatId];
   removeRegisteredChat(chatId);
-  logger.info({ chatId }, '채팅 등록 해제');
+  logger.info({ chatId }, 'Chat unregistered');
 }
 
-// === 메시지 처리 ===
+// === Message Processing ===
 
 async function processMessages(chatId: string): Promise<void> {
   const chat = registeredChats[chatId];
@@ -303,20 +303,20 @@ async function processMessages(chatId: string): Promise<void> {
 
   if (pendingMessages.length === 0) return;
 
-  // 트리거 패턴 확인
+  // Check trigger pattern
   if (chat.requiresTrigger) {
     const hasTrigger = pendingMessages.some((m) => TRIGGER_PATTERN.test(m.content.trim()));
     if (!hasTrigger) return;
   }
 
-  // 커서 전진 (중복 처리 방지)
+  // Advance cursor (prevent duplicate processing)
   const previousCursor = lastAgentTimestamp[chatId] || '';
   lastAgentTimestamp[chatId] = pendingMessages[pendingMessages.length - 1].timestamp;
   saveState();
 
-  logger.info({ chat: chat.name, messageCount: pendingMessages.length }, '메시지 처리 시작');
+  logger.info({ chat: chat.name, messageCount: pendingMessages.length }, 'Message processing started');
 
-  // 트리거 텍스트에서 @BotName 제거
+  // Remove @BotName from trigger text
   const cleanedMessages = pendingMessages.map((m) => ({
     ...m,
     content: m.content.replace(TRIGGER_PATTERN, '').trim() || m.content,
@@ -324,35 +324,35 @@ async function processMessages(chatId: string): Promise<void> {
 
   const prompt = formatMessages(cleanedMessages);
 
-  // 타이핑 표시
+  // Show typing indicator
   await channel.setTyping?.(chatId, true);
 
   try {
     const output = await agentRunner.run(chat, { prompt });
 
-    // 응답 전송
+    // Send response
     const text = stripInternalTags(output.result);
     if (text) {
       await channel.sendMessage(chatId, text);
     }
 
-    // 세션 저장
+    // Save session
     if (output.sessionId) {
       setSession(chat.folder, output.sessionId);
     }
 
-    logger.info({ chat: chat.name, durationMs: output.durationMs }, '메시지 처리 완료');
+    logger.info({ chat: chat.name, durationMs: output.durationMs }, 'Message processing completed');
   } catch (err) {
     lastAgentTimestamp[chatId] = previousCursor;
     saveState();
-    logger.error({ chat: chat.name, err }, '메시지 처리 실패, 커서 롤백');
+    logger.error({ chat: chat.name, err }, 'Message processing failed, cursor rolled back');
   }
 }
 
-// === 메시지 폴링 루프 ===
+// === Message Polling Loop ===
 
 async function startMessageLoop(): Promise<void> {
-  logger.info(`PhoneClaw 실행 중 (트리거: @${BOT_NAME})`);
+  logger.info(`PhoneClaw running (trigger: @${BOT_NAME})`);
 
   while (true) {
     try {
@@ -375,38 +375,38 @@ async function startMessageLoop(): Promise<void> {
         }
       }
     } catch (err) {
-      logger.error({ err }, '메시지 루프 오류');
+      logger.error({ err }, 'Message loop error');
     }
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
   }
 }
 
-// === 크래시 복구 ===
+// === Crash Recovery ===
 
 function recoverPendingMessages(): void {
   for (const [chatId, chat] of Object.entries(registeredChats)) {
     const sinceTimestamp = lastAgentTimestamp[chatId] || '';
     const pending = getMessagesSince(chatId, sinceTimestamp);
     if (pending.length > 0) {
-      logger.info({ chat: chat.name, pendingCount: pending.length }, '복구: 미처리 메시지 발견');
+      logger.info({ chat: chat.name, pendingCount: pending.length }, 'Recovery: unprocessed messages found');
       queue.enqueueMessageCheck(chatId);
     }
   }
 }
 
-// === 메인 ===
+// === Main ===
 
 async function main(): Promise<void> {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.mkdirSync(CHATS_DIR, { recursive: true });
 
   initDatabase();
-  logger.info('데이터베이스 초기화 완료');
+  logger.info('Database initialized');
   loadState();
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
-    logger.info({ signal }, '종료 신호 수신');
+    logger.info({ signal }, 'Shutdown signal received');
     await queue.shutdown();
     await agentRunner.shutdown();
     await channel.disconnect();
@@ -415,9 +415,9 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 
-  // Telegram 채널 연결
+  // Connect Telegram channel
   if (!TELEGRAM_BOT_TOKEN) {
-    logger.error('TELEGRAM_BOT_TOKEN이 설정되지 않았습니다');
+    logger.error('TELEGRAM_BOT_TOKEN is not set');
     process.exit(1);
   }
 
@@ -435,23 +435,23 @@ async function main(): Promise<void> {
         const tasks = getAllTasks();
         const activeTasks = tasks.filter((t) => t.status === 'active').length;
         return [
-          `${BOT_NAME} 상태`,
-          `모드: local`,
-          `등록 채팅: ${chatCount}개`,
-          `예약 작업: ${activeTasks}/${tasks.length}개 활성`,
-          `업타임: ${process.uptime().toFixed(0)}초`,
+          `${BOT_NAME} Status`,
+          `Mode: local`,
+          `Registered chats: ${chatCount}`,
+          `Scheduled tasks: ${activeTasks}/${tasks.length} active`,
+          `Uptime: ${process.uptime().toFixed(0)}s`,
         ].join('\n');
       },
       getChats: () => {
         const entries = Object.values(registeredChats);
-        if (entries.length === 0) return '등록된 채팅이 없습니다.';
+        if (entries.length === 0) return 'No registered chats.';
         return entries
-          .map((c) => `- ${c.name} (${c.chatId})\n  폴더: ${c.folder}, 트리거: ${c.requiresTrigger ? '필요' : '불필요'}`)
+          .map((c) => `- ${c.name} (${c.chatId})\n  Folder: ${c.folder}, Trigger: ${c.requiresTrigger ? 'required' : 'not required'}`)
           .join('\n');
       },
       getTasks: () => {
         const tasks = getAllTasks();
-        if (tasks.length === 0) return '예약 작업이 없습니다.';
+        if (tasks.length === 0) return 'No scheduled tasks.';
         return tasks
           .map((t) => `- [${t.id.slice(0, 8)}] ${t.prompt.slice(0, 40)}...\n  ${t.scheduleType}: ${t.scheduleValue} (${t.status})`)
           .join('\n');
@@ -461,7 +461,7 @@ async function main(): Promise<void> {
 
   await channel.connect();
 
-  // Agent Runner 생성
+  // Create Agent Runner
   const localRunner = new LocalAgentRunner();
   localRunner.setMcpCallbacks({
     sendMessage: (chatId, text) => channel.sendMessage(chatId, text),
@@ -478,14 +478,14 @@ async function main(): Promise<void> {
         status: 'active',
         createdAt: new Date().toISOString(),
       };
-      // 다음 실행 시간 계산
+      // Calculate next run time
       const nextRun = computeNextRun(task as ScheduledTask);
       createTask({ ...task, nextRun });
       return taskId;
     },
     listTasks: (chatFolder) => {
       const tasks = getAllTasks().filter((t) => t.chatFolder === chatFolder);
-      if (tasks.length === 0) return '예약 작업 없음';
+      if (tasks.length === 0) return 'No scheduled tasks';
       return tasks
         .map((t) => `[${t.id}] ${t.prompt.slice(0, 50)} (${t.scheduleType}: ${t.scheduleValue}, ${t.status})`)
         .join('\n');
@@ -499,62 +499,62 @@ async function main(): Promise<void> {
   });
   agentRunner = localRunner;
 
-  // 메시지 큐 설정
+  // Set up message queue
   queue.setProcessMessagesFn(processMessages);
 
-  // 스케줄러 시작
+  // Start scheduler
   startSchedulerLoop({
     agentRunner,
     getRegisteredChats: () => registeredChats,
     sendMessage: (chatId, text) => channel.sendMessage(chatId, text),
   });
 
-  // 미처리 메시지 복구
+  // Recover unprocessed messages
   recoverPendingMessages();
 
-  // 메시지 폴링 루프 시작
+  // Start message polling loop
   startMessageLoop();
 }
 
-// 직접 실행인 경우에만 main() 호출
+// Only call main() when run directly
 const isDirectRun =
   process.argv[1] &&
   new URL(import.meta.url).pathname === new URL(`file://${process.argv[1]}`).pathname;
 
 if (isDirectRun) {
   main().catch((err) => {
-    logger.error({ err }, 'PhoneClaw 시작 실패');
+    logger.error({ err }, 'PhoneClaw startup failed');
     process.exit(1);
   });
 }
 ```
 
-## 핵심 설계 포인트
+## Key Design Points
 
-### 커서 기반 중복 방지
+### Cursor-Based Deduplication
 
-`lastAgentTimestamp[chatId]`를 사용하여 각 채팅별로 마지막 처리 완료 시점을 추적합니다. Agent 실행 전에 커서를 전진시키고, 실패 시 롤백합니다.
+Uses `lastAgentTimestamp[chatId]` to track the last processed timestamp for each chat. The cursor is advanced before Agent execution and rolled back on failure.
 
-### MessageQueue의 동시실행 제어
+### MessageQueue Concurrency Control
 
-| 상황 | 동작 |
-|------|------|
-| 같은 채팅에 Agent 실행 중 | `pendingMessages = true`, 완료 후 재처리 |
-| 전체 동시실행 한도 초과 | `waitingChats`에 추가, 슬롯 확보 시 실행 |
-| 종료 중 | 새 작업 거부 (`shuttingDown`) |
+| Scenario | Behavior |
+|----------|----------|
+| Agent already running for the same chat | `pendingMessages = true`, reprocessed after completion |
+| Total concurrency limit exceeded | Added to `waitingChats`, executed when a slot opens |
+| Shutting down | New jobs rejected (`shuttingDown`) |
 
-### Graceful Shutdown 순서
+### Graceful Shutdown Order
 
-1. `queue.shutdown()` - 새 작업 거부
-2. `agentRunner.shutdown()` - 진행 중 작업 정리
-3. `channel.disconnect()` - Telegram 연결 종료
+1. `queue.shutdown()` - Reject new jobs
+2. `agentRunner.shutdown()` - Clean up in-progress work
+3. `channel.disconnect()` - Close Telegram connection
 
-## 검증
+## Verification
 
 ```bash
-# 타입 체크
+# Type check
 npx tsc --noEmit
 
-# 파일 존재 확인
+# Verify files exist
 ls -la src/index.ts src/router.ts src/queue.ts
 ```

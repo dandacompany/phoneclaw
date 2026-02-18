@@ -1,58 +1,58 @@
 ---
 name: phoneclaw-session-memory
-description: "PhoneClaw EP07 - 대화 기억(세션 메모리). Claude Code SDK의 session resume 기능과 채팅별 CLAUDE.md를 활용하여 Agent가 이전 대화 맥락을 기억하고, 채팅별로 다른 성격/지시사항을 적용할 수 있도록 구성합니다."
+description: "PhoneClaw EP07 - Session Memory. Uses the Claude Code SDK session resume feature and per-chat CLAUDE.md files so the Agent can remember previous conversation context and apply different personalities/instructions for each chat."
 ---
 
 # EP07: PhoneClaw Session Memory
 
-Agent가 이전 대화를 기억하고, 채팅별로 다른 성격과 지시사항을 적용할 수 있는 **세션 메모리** 시스템을 구성합니다.
+Build a **session memory** system that allows the Agent to remember previous conversations and apply different personalities and instructions per chat.
 
-## 개요
+## Overview
 
-PhoneClaw의 세션 메모리는 두 가지 축으로 구성됩니다:
+PhoneClaw's session memory is built on two pillars:
 
-1. **Session Resume** - Claude Code SDK의 `resume` 옵션을 통해 이전 대화 컨텍스트를 이어받습니다.
-2. **채팅별 CLAUDE.md** - 각 채팅 폴더에 `CLAUDE.md`를 작성하여 Agent의 성격, 전문 분야, 응답 스타일을 커스터마이징합니다.
+1. **Session Resume** - Carries over prior conversation context via the Claude Code SDK `resume` option.
+2. **Per-Chat CLAUDE.md** - A `CLAUDE.md` file in each chat folder customizes the Agent's personality, expertise, and response style.
 
-### 세션 흐름
+### Session Flow
 
 ```
-1. 새 메시지 수신
-2. DB에서 기존 sessionId 조회 (sessions 테이블)
-3. Claude Code query() 실행 시 resume: sessionId 전달
-4. Agent가 이전 대화 맥락을 포함하여 응답
-5. 새 sessionId를 DB에 저장
+1. New message received
+2. Look up existing sessionId from DB (sessions table)
+3. Pass resume: sessionId when calling Claude Code query()
+4. Agent responds with previous conversation context included
+5. Save new sessionId to DB
 ```
 
-### 데이터 구조
+### Data Structure
 
 ```
 data/
-  phoneclaw.db          # sessions 테이블: chat_folder -> session_id
+  phoneclaw.db          # sessions table: chat_folder -> session_id
 
 chats/
   study-group/
-    CLAUDE.md           # 이 채팅의 Agent 커스터마이징
-    logs/               # 로그 디렉토리
+    CLAUDE.md           # Agent customization for this chat
+    logs/               # Log directory
   personal/
-    CLAUDE.md           # 다른 성격의 Agent 설정
+    CLAUDE.md           # Agent settings with a different personality
     logs/
 ```
 
-## 의존성
+## Dependencies
 
-- **EP01~EP06 완료 필수**: 특히 `db.ts`의 `getSession()`, `setSession()` 함수와 `local-runner.ts`의 세션 연동 로직이 필요합니다.
+- **EP01~EP06 must be completed**: In particular, the `getSession()` and `setSession()` functions in `db.ts` and the session integration logic in `local-runner.ts` are required.
 
-## 단계별 지시
+## Step-by-Step Instructions
 
-### Step 1: DB 세션 저장소 확인
+### Step 1: Verify DB Session Store
 
-`src/db.ts`에 이미 다음 함수들이 구현되어 있어야 합니다:
+The following functions should already be implemented in `src/db.ts`:
 
 ```typescript
-// src/db.ts (기존 코드 - 확인용)
+// src/db.ts (existing code - for reference)
 
-// 세션 테이블 스키마 (createSchema 내부)
+// Session table schema (inside createSchema)
 // CREATE TABLE IF NOT EXISTS sessions (
 //   chat_folder TEXT PRIMARY KEY,
 //   session_id TEXT NOT NULL
@@ -70,177 +70,177 @@ export function setSession(chatFolder: string, sessionId: string): void {
 }
 ```
 
-### Step 2: Local Runner 세션 Resume 로직 확인
+### Step 2: Verify Local Runner Session Resume Logic
 
-`src/agent/local-runner.ts`에서 세션이 어떻게 resume되는지 확인합니다. 핵심 코드:
+Check how sessions are resumed in `src/agent/local-runner.ts`. Key code:
 
 ```typescript
-// src/agent/local-runner.ts (기존 코드 - 확인용)
+// src/agent/local-runner.ts (existing code - for reference)
 
-// 1. 기존 세션 조회
+// 1. Look up existing session
 const existingSessionId = input.sessionId || getSession(chat.folder);
 
-// 2. query() 실행 시 resume 옵션으로 전달
+// 2. Pass resume option when calling query()
 for await (const message of query({
   prompt: input.prompt,
   options: {
     cwd: chatDir,
-    resume: existingSessionId,   // <-- 핵심: 이전 세션 이어받기
+    resume: existingSessionId,   // <-- Key: resume previous session
     appendSystemPrompt: systemAppend,
     // ...
   },
 })) {
-  // 3. 초기화 메시지에서 새 sessionId 획득
+  // 3. Obtain new sessionId from init message
   if (message.type === 'system' && message.subtype === 'init') {
     sessionId = message.session_id;
   }
   // ...
 }
 
-// 4. 새 sessionId 저장
+// 4. Save new sessionId
 if (sessionId) {
   setSession(chat.folder, sessionId);
 }
 ```
 
-### Step 3: 채팅별 CLAUDE.md 시스템
+### Step 3: Per-Chat CLAUDE.md System
 
-채팅 등록 시 `chats/{folder}/CLAUDE.md`가 자동 생성됩니다 (EP05 `registerChat()` 참고).
-이 파일의 내용이 Agent의 `appendSystemPrompt`에 추가됩니다.
+When a chat is registered, `chats/{folder}/CLAUDE.md` is automatically created (see EP05 `registerChat()`).
+The contents of this file are appended to the Agent's `appendSystemPrompt`.
 
 ```typescript
-// src/agent/local-runner.ts 내부 (기존 코드 - 확인용)
-let systemAppend = `당신의 이름은 ${BOT_NAME}입니다. Telegram 메시지에 한국어로 응답하세요. 간결하고 자연스럽게 대화하세요.`;
+// Inside src/agent/local-runner.ts (existing code - for reference)
+let systemAppend = `Your name is ${BOT_NAME}. Respond to Telegram messages in Korean. Keep your responses concise and natural.`;
 if (fs.existsSync(claudeMdPath)) {
   systemAppend += '\n\n' + fs.readFileSync(claudeMdPath, 'utf-8');
 }
 ```
 
-### Step 4: CLAUDE.md 커스터마이징 가이드
+### Step 4: CLAUDE.md Customization Guide
 
-각 채팅 폴더의 `CLAUDE.md`를 편집하여 Agent 동작을 채팅별로 다르게 설정할 수 있습니다.
+Edit the `CLAUDE.md` in each chat folder to configure Agent behavior differently per chat.
 
-#### 기본 템플릿
+#### Default Template
 
-채팅 등록 시 자동 생성되는 기본 내용:
+Default content auto-generated when a chat is registered:
 
 ```markdown
-# {채팅 이름}
+# {Chat Name}
 
-이 채팅의 AI 비서 설정입니다.
+AI assistant settings for this chat.
 ```
 
-#### 커스터마이징 예시 1: 스터디 그룹
+#### Customization Example 1: Study Group
 
 ```markdown
-# 스터디 그룹
+# Study Group
 
-## 역할
-당신은 AI/ML 학습을 돕는 멘토입니다. 그룹원들의 질문에 친절하고 상세하게 답변하세요.
+## Role
+You are a mentor helping with AI/ML learning. Answer group members' questions kindly and in detail.
 
-## 응답 규칙
-- 코드 예제를 포함할 때는 반드시 설명을 추가하세요
-- 어려운 개념은 비유를 들어 설명하세요
-- 관련 학습 리소스(문서, 논문)를 추천하세요
-- 그룹원 간 토론을 유도하는 질문을 덧붙이세요
+## Response Rules
+- Always include explanations when providing code examples
+- Explain difficult concepts using analogies
+- Recommend relevant learning resources (documentation, papers)
+- Add follow-up questions to encourage discussion among group members
 
-## 전문 분야
+## Expertise
 - Python, PyTorch, Transformers
-- LLM 파인튜닝 및 프롬프트 엔지니어링
+- LLM fine-tuning and prompt engineering
 - MLOps
 ```
 
-#### 커스터마이징 예시 2: 업무 자동화 채널
+#### Customization Example 2: Workflow Automation Channel
 
 ```markdown
-# 업무 자동화
+# Workflow Automation
 
-## 역할
-n8n 워크플로우와 자동화 설정을 도와주는 전문가입니다.
+## Role
+You are an expert who helps with n8n workflows and automation setup.
 
-## 응답 규칙
-- 항상 n8n 노드 이름과 설정값을 구체적으로 안내하세요
-- 에러 발생 시 디버깅 순서를 단계별로 안내하세요
-- 보안 관련 사항(API 키, 토큰)은 환경변수 사용을 강조하세요
+## Response Rules
+- Always provide specific n8n node names and configuration values
+- When errors occur, guide through debugging steps in order
+- Emphasize the use of environment variables for security-sensitive items (API keys, tokens)
 
-## 사용 가능 도구
-- WebSearch로 최신 n8n 문서를 검색할 수 있습니다
-- schedule_task로 정기 작업을 예약할 수 있습니다
+## Available Tools
+- Use WebSearch to look up the latest n8n documentation
+- Use schedule_task to schedule recurring tasks
 ```
 
-#### 커스터마이징 예시 3: 개인 비서
+#### Customization Example 3: Personal Assistant
 
 ```markdown
-# 개인 비서
+# Personal Assistant
 
-## 역할
-단테의 개인 AI 비서입니다. 일정 관리, 리마인더, 정보 검색을 담당합니다.
+## Role
+You are Dante's personal AI assistant. You handle schedule management, reminders, and information lookup.
 
-## 응답 스타일
-- 존댓말 사용하지 않기 (반말)
-- 간결하게, 핵심만
-- 이모지 사용 OK
+## Response Style
+- Do not use formal speech (use casual tone)
+- Keep it concise, focus on key points
+- Emojis are OK
 
-## 자주 사용하는 작업
-- 매일 아침 9시 뉴스 요약 (schedule_task cron "0 9 * * *")
-- 주간 리뷰 리마인더 (schedule_task cron "0 18 * * 5")
+## Frequently Used Tasks
+- Daily morning 9 AM news summary (schedule_task cron "0 9 * * *")
+- Weekly review reminder (schedule_task cron "0 18 * * 5")
 ```
 
-## 세션 메모리 동작 상세
+## Session Memory Detailed Behavior
 
-### 세션 라이프사이클
+### Session Lifecycle
 
-| 단계 | 설명 |
-|------|------|
-| 채팅 등록 | `sessions` 테이블에 레코드 없음 (sessionId = undefined) |
-| 첫 메시지 | `resume: undefined` -> 새 세션 생성 -> sessionId 저장 |
-| 이후 메시지 | `resume: existingSessionId` -> 이전 대화 이어받기 |
-| 세션 만료 | Claude Code가 세션을 찾지 못하면 새 세션 자동 생성 |
+| Stage | Description |
+|-------|-------------|
+| Chat registration | No record in `sessions` table (sessionId = undefined) |
+| First message | `resume: undefined` -> new session created -> sessionId saved |
+| Subsequent messages | `resume: existingSessionId` -> resumes previous conversation |
+| Session expiration | If Claude Code cannot find the session, a new session is automatically created |
 
-### 세션 초기화 방법
+### How to Reset a Session
 
-특정 채팅의 세션을 초기화하려면 DB에서 직접 삭제합니다:
+To reset a specific chat's session, delete it directly from the DB:
 
 ```bash
-# SQLite에서 특정 채팅의 세션 삭제
+# Delete a specific chat's session from SQLite
 sqlite3 data/phoneclaw.db "DELETE FROM sessions WHERE chat_folder = 'study-group';"
 ```
 
-또는 전체 세션 초기화:
+Or reset all sessions:
 
 ```bash
 sqlite3 data/phoneclaw.db "DELETE FROM sessions;"
 ```
 
-### 세션 + CLAUDE.md 조합 효과
+### Combined Effect of Session + CLAUDE.md
 
-| 기능 | Session Resume | CLAUDE.md |
-|------|---------------|-----------|
-| 이전 대화 기억 | O | X |
-| Agent 성격 설정 | X | O |
-| 전문 분야 지정 | X | O |
-| 응답 스타일 제어 | X | O |
-| 대화 맥락 유지 | O | X |
-| 영구성 | 세션 ID 기반 (만료 가능) | 파일 기반 (영구) |
+| Feature | Session Resume | CLAUDE.md |
+|---------|---------------|-----------|
+| Remember previous conversations | O | X |
+| Agent personality settings | X | O |
+| Specify expertise area | X | O |
+| Control response style | X | O |
+| Maintain conversation context | O | X |
+| Persistence | Session ID-based (may expire) | File-based (permanent) |
 
-### 주의사항
+### Important Notes
 
-1. **세션 크기 제한**: Claude Code의 세션은 컨텍스트 윈도우 크기에 제한됩니다. 매우 긴 대화는 오래된 부분이 잘릴 수 있습니다.
-2. **CLAUDE.md 크기**: `appendSystemPrompt`에 추가되므로 너무 길면 실제 대화에 할당되는 컨텍스트가 줄어듭니다. 500자 이내를 권장합니다.
-3. **CLAUDE.md 경로**: `chats/{folder}/CLAUDE.md` 파일은 프로젝트 루트 기준 상대 경로로 관리됩니다.
+1. **Session size limit**: Claude Code sessions are limited by the context window size. Very long conversations may have older portions truncated.
+2. **CLAUDE.md size**: Since it is added to `appendSystemPrompt`, an overly long file reduces the context available for actual conversation. Recommended to keep under 500 characters.
+3. **CLAUDE.md path**: The `chats/{folder}/CLAUDE.md` files are managed as relative paths from the project root.
 
-## 검증
+## Verification
 
 ```bash
-# 타입 체크
+# Type check
 npx tsc --noEmit
 
-# DB 세션 테이블 확인
+# Verify DB sessions table
 sqlite3 data/phoneclaw.db ".schema sessions"
 
-# 세션 목록 조회
+# List sessions
 sqlite3 data/phoneclaw.db "SELECT * FROM sessions;"
 
-# 채팅 폴더의 CLAUDE.md 확인
+# Check CLAUDE.md files in chat folders
 ls -la chats/*/CLAUDE.md
 ```

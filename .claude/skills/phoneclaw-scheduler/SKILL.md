@@ -1,35 +1,35 @@
 ---
 name: phoneclaw-scheduler
-description: "EP08 - PhoneClaw 예약 작업 스케줄러 생성"
+description: "EP08 - PhoneClaw Scheduled Task Scheduler"
 ---
 
-# EP08: 예약 작업 스케줄러 (phoneclaw-scheduler)
+# EP08: Scheduled Task Scheduler (phoneclaw-scheduler)
 
-## 개요
+## Overview
 
-PhoneClaw 봇의 예약 작업 스케줄러를 구현합니다. cron 표현식, 고정 간격(interval), 일회성(once) 세 가지 스케줄 유형을 지원하며, 주기적으로 실행 대기 작업을 확인하여 Agent를 통해 실행하고 결과를 채팅에 전송합니다.
+Implements the scheduled task scheduler for the PhoneClaw bot. Supports three schedule types: cron expressions, fixed intervals, and one-time (once). Periodically checks for due tasks, executes them through the Agent, and sends results to the chat.
 
-## 의존성
+## Dependencies
 
-- **EP01~EP08 완료 필수**: 프로젝트 스캐폴드, 데이터베이스, Telegram 채널, Agent Runner, 메시지 루프가 모두 구현되어 있어야 합니다.
-- `src/types.ts`에 `ScheduledTask`, `TaskRunLog` 인터페이스가 정의되어 있어야 합니다.
-- `src/db.ts`에 `getDueTasks`, `updateTaskAfterRun`, `logTaskRun` 함수가 존재해야 합니다.
-- `src/config.ts`에 `SCHEDULER_POLL_INTERVAL`, `TIMEZONE` 상수가 정의되어 있어야 합니다.
-- `cron-parser` 패키지가 설치되어 있어야 합니다 (`package.json` 확인).
+- **EP01~EP08 must be completed**: Project scaffold, database, Telegram channel, Agent Runner, and message loop must all be implemented.
+- `ScheduledTask` and `TaskRunLog` interfaces must be defined in `src/types.ts`.
+- `getDueTasks`, `updateTaskAfterRun`, and `logTaskRun` functions must exist in `src/db.ts`.
+- `SCHEDULER_POLL_INTERVAL` and `TIMEZONE` constants must be defined in `src/config.ts`.
+- The `cron-parser` package must be installed (check `package.json`).
 
-## 단계별 지시
+## Step-by-Step Instructions
 
-### 1단계: 의존성 확인
+### Step 1: Verify Dependencies
 
-다음 파일들이 존재하는지 확인합니다:
-- `src/types.ts` - `ScheduledTask`, `TaskRunLog` 타입
-- `src/db.ts` - `getDueTasks`, `updateTaskAfterRun`, `logTaskRun` 함수
-- `src/config.ts` - `SCHEDULER_POLL_INTERVAL`, `TIMEZONE` 상수
-- `package.json` - `cron-parser` 의존성
+Verify that the following files exist:
+- `src/types.ts` - `ScheduledTask`, `TaskRunLog` types
+- `src/db.ts` - `getDueTasks`, `updateTaskAfterRun`, `logTaskRun` functions
+- `src/config.ts` - `SCHEDULER_POLL_INTERVAL`, `TIMEZONE` constants
+- `package.json` - `cron-parser` dependency
 
-### 2단계: `src/scheduler.ts` 생성
+### Step 2: Create `src/scheduler.ts`
 
-아래 내용으로 `src/scheduler.ts` 파일을 생성합니다:
+Create the `src/scheduler.ts` file with the following content:
 
 ```typescript
 import { CronExpressionParser } from 'cron-parser';
@@ -52,7 +52,7 @@ export function computeNextRun(task: ScheduledTask): string | null {
       const interval = CronExpressionParser.parse(task.scheduleValue, { tz: TIMEZONE });
       return interval.next().toISOString();
     } catch {
-      logger.warn({ taskId: task.id, cron: task.scheduleValue }, '잘못된 cron 표현식');
+      logger.warn({ taskId: task.id, cron: task.scheduleValue }, 'Invalid cron expression');
       return null;
     }
   }
@@ -63,7 +63,7 @@ export function computeNextRun(task: ScheduledTask): string | null {
     return new Date(Date.now() + ms).toISOString();
   }
 
-  // once - 이미 실행되면 다음 실행 없음
+  // once - no next run after execution
   return null;
 }
 
@@ -75,13 +75,13 @@ export function startSchedulerLoop(opts: SchedulerOpts): void {
       const dueTasks = getDueTasks();
       if (dueTasks.length === 0) return;
 
-      logger.info({ count: dueTasks.length }, '실행 대기 작업 발견');
+      logger.info({ count: dueTasks.length }, 'Due tasks found');
 
       for (const task of dueTasks) {
         const chats = getRegisteredChats();
         const chat = chats[task.chatId];
         if (!chat) {
-          logger.warn({ taskId: task.id, chatId: task.chatId }, '등록되지 않은 채팅의 작업, 건너뜀');
+          logger.warn({ taskId: task.id, chatId: task.chatId }, 'Task for unregistered chat, skipping');
           continue;
         }
 
@@ -91,27 +91,27 @@ export function startSchedulerLoop(opts: SchedulerOpts): void {
         let errorText: string | null = null;
 
         try {
-          logger.info({ taskId: task.id, prompt: task.prompt.slice(0, 50) }, '예약 작업 실행');
+          logger.info({ taskId: task.id, prompt: task.prompt.slice(0, 50) }, 'Executing scheduled task');
 
           const output = await agentRunner.run(chat, {
-            prompt: `[예약 작업] ${task.prompt}`,
+            prompt: `[Scheduled Task] ${task.prompt}`,
           });
 
           resultText = output.result;
 
-          // 결과를 채팅에 전송
+          // Send result to chat
           if (resultText && !resultText.startsWith('<internal>')) {
             await sendMessage(task.chatId, resultText);
           }
         } catch (err) {
           status = 'error';
           errorText = err instanceof Error ? err.message : String(err);
-          logger.error({ taskId: task.id, err: errorText }, '예약 작업 실행 오류');
+          logger.error({ taskId: task.id, err: errorText }, 'Scheduled task execution error');
         }
 
         const durationMs = Date.now() - startTime;
 
-        // 실행 로그 기록
+        // Log the run
         logTaskRun({
           taskId: task.id,
           runAt: new Date().toISOString(),
@@ -121,41 +121,41 @@ export function startSchedulerLoop(opts: SchedulerOpts): void {
           error: errorText,
         });
 
-        // 다음 실행 시간 계산
+        // Calculate next run time
         const nextRun = computeNextRun(task);
         updateTaskAfterRun(task.id, nextRun, resultText.slice(0, 500));
 
         logger.info(
           { taskId: task.id, status, durationMs, nextRun },
-          '예약 작업 완료',
+          'Scheduled task completed',
         );
       }
     } catch (err) {
-      logger.error({ err }, '스케줄러 루프 오류');
+      logger.error({ err }, 'Scheduler loop error');
     }
   }
 
-  // 주기적 실행
+  // Periodic execution
   setInterval(tick, SCHEDULER_POLL_INTERVAL);
-  logger.info({ interval: SCHEDULER_POLL_INTERVAL }, '스케줄러 시작');
+  logger.info({ interval: SCHEDULER_POLL_INTERVAL }, 'Scheduler started');
 
-  // 즉시 1회 실행
+  // Execute immediately once
   tick();
 }
 ```
 
-### 3단계: `src/index.ts`에 스케줄러 통합
+### Step 3: Integrate Scheduler into `src/index.ts`
 
-`src/index.ts`의 `main()` 함수 안에 스케줄러를 연결합니다. 다음 import와 호출 코드가 포함되어 있어야 합니다:
+Connect the scheduler inside the `main()` function of `src/index.ts`. The following import and invocation code must be included:
 
-**import 추가** (파일 상단):
+**Add import** (top of file):
 ```typescript
 import { startSchedulerLoop, computeNextRun } from './scheduler.js';
 ```
 
-**main() 함수 내 스케줄러 시작** (`queue.setProcessMessagesFn(processMessages)` 이후):
+**Start scheduler inside main()** (after `queue.setProcessMessagesFn(processMessages)`):
 ```typescript
-  // 스케줄러 시작
+  // Start the scheduler
   startSchedulerLoop({
     agentRunner,
     getRegisteredChats: () => registeredChats,
@@ -163,7 +163,7 @@ import { startSchedulerLoop, computeNextRun } from './scheduler.js';
   });
 ```
 
-**MCP 콜백의 scheduleTask에서 computeNextRun 사용**:
+**Use computeNextRun in the MCP callback's scheduleTask**:
 ```typescript
       scheduleTask: async (data) => {
         const taskId = crypto.randomUUID().slice(0, 8);
@@ -178,44 +178,44 @@ import { startSchedulerLoop, computeNextRun } from './scheduler.js';
           status: 'active',
           createdAt: new Date().toISOString(),
         };
-        // 다음 실행 시간 계산
+        // Calculate next run time
         const nextRun = computeNextRun(task as ScheduledTask);
         createTask({ ...task, nextRun });
         return taskId;
       },
 ```
 
-## 핵심 동작 원리
+## Core Behavior
 
-1. **스케줄 유형 3가지**:
-   - `cron`: cron 표현식 (`0 9 * * *` = 매일 09:00)
-   - `interval`: 밀리초 간격 (`3600000` = 1시간마다)
-   - `once`: 일회성 실행 후 `completed` 상태로 전환
+1. **Three schedule types**:
+   - `cron`: Cron expression (`0 9 * * *` = every day at 09:00)
+   - `interval`: Millisecond interval (`3600000` = every hour)
+   - `once`: One-time execution, then transitions to `completed` status
 
-2. **실행 흐름**:
-   - `SCHEDULER_POLL_INTERVAL` (기본 60초)마다 `tick()` 실행
-   - `getDueTasks()`로 `next_run <= now`인 활성 작업 조회
-   - 각 작업에 대해 Agent를 실행하고 결과를 채팅에 전송
-   - `logTaskRun()`으로 실행 이력 기록
-   - `computeNextRun()`으로 다음 실행 시간 계산 후 DB 업데이트
+2. **Execution flow**:
+   - `tick()` runs every `SCHEDULER_POLL_INTERVAL` (default 60 seconds)
+   - `getDueTasks()` retrieves active tasks where `next_run <= now`
+   - For each task, runs the Agent and sends the result to the chat
+   - `logTaskRun()` records the execution history
+   - `computeNextRun()` calculates the next run time and updates the DB
 
-3. **안전장치**:
-   - 등록되지 않은 채팅의 작업은 건너뜀
-   - 오류 발생 시 status를 `error`로 기록하되 스케줄러 루프는 계속 동작
-   - `once` 유형은 실행 후 `nextRun = null` 반환 -> DB에서 `completed` 처리
+3. **Safety mechanisms**:
+   - Tasks for unregistered chats are skipped
+   - On error, status is recorded as `error` but the scheduler loop continues running
+   - `once` type returns `nextRun = null` after execution -> marked as `completed` in DB
 
-## 검증
+## Verification
 
-1. TypeScript 컴파일 확인:
+1. Verify TypeScript compilation:
 ```bash
 cd /Users/dante/workspace/dante-code/projects/phoneclaw && npx tsc --noEmit
 ```
 
-2. `src/scheduler.ts` 파일이 존재하고 `computeNextRun`, `startSchedulerLoop`를 export하는지 확인
+2. Verify that `src/scheduler.ts` exists and exports `computeNextRun` and `startSchedulerLoop`
 
-3. `src/index.ts`에서 `startSchedulerLoop`을 import하고 `main()` 내에서 호출하는지 확인
+3. Verify that `src/index.ts` imports `startSchedulerLoop` and calls it inside `main()`
 
-4. 테스트 실행 (있는 경우):
+4. Run tests (if available):
 ```bash
 cd /Users/dante/workspace/dante-code/projects/phoneclaw && npm test
 ```
