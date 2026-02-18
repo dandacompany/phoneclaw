@@ -13,6 +13,10 @@ export interface McpToolCallbacks {
   listTasks?: (chatFolder: string) => string;
   updateTaskStatus?: (taskId: string, status: 'active' | 'paused') => Promise<void>;
   cancelTask?: (taskId: string) => Promise<void>;
+  savePersona?: (chatFolder: string, content: string) => void;
+  saveMemory?: (chatFolder: string, entry: string) => void;
+  recallMemory?: (chatFolder: string, keyword: string) => string;
+  updateLongTermMemory?: (chatFolder: string, content: string) => void;
 }
 
 export function createPhoneClawMcpServer(chatId: string, chatFolder: string, callbacks: McpToolCallbacks) {
@@ -105,6 +109,62 @@ export function createPhoneClawMcpServer(chatId: string, chatFolder: string, cal
           }
           await callbacks.cancelTask(args.task_id);
           return { content: [{ type: 'text' as const, text: `작업 ${args.task_id} 취소됨.` }] };
+        },
+      ),
+
+      // === 페르소나 도구 ===
+
+      tool(
+        'save_persona',
+        '봇의 페르소나(성격, 이름, 이모지 등)와 사용자 컨텍스트를 PERSONA.md에 저장합니다. 상견례(bootstrap) 대화 후 호출하세요.',
+        { content: z.string().describe('PERSONA.md에 저장할 마크다운 내용') },
+        async (args) => {
+          if (!callbacks.savePersona) {
+            return { content: [{ type: 'text' as const, text: '페르소나 시스템이 활성화되지 않았습니다.' }], isError: true };
+          }
+          callbacks.savePersona(chatFolder, args.content);
+          return { content: [{ type: 'text' as const, text: '페르소나가 저장되었습니다.' }] };
+        },
+      ),
+
+      // === 메모리 도구 ===
+
+      tool(
+        'save_memory',
+        '대화 중 중요한 사실이나 사용자 요청을 오늘의 일일 메모리에 기록합니다.',
+        { entry: z.string().describe('기억할 내용') },
+        async (args) => {
+          if (!callbacks.saveMemory) {
+            return { content: [{ type: 'text' as const, text: '메모리 시스템이 활성화되지 않았습니다.' }], isError: true };
+          }
+          callbacks.saveMemory(chatFolder, args.entry);
+          return { content: [{ type: 'text' as const, text: '메모리에 기록되었습니다.' }] };
+        },
+      ),
+
+      tool(
+        'recall_memory',
+        '키워드로 과거 대화 기억을 검색합니다. 최근 30일 일지와 장기 기억에서 찾습니다.',
+        { keyword: z.string().describe('검색 키워드') },
+        async (args) => {
+          if (!callbacks.recallMemory) {
+            return { content: [{ type: 'text' as const, text: '메모리 시스템이 활성화되지 않았습니다.' }], isError: true };
+          }
+          const result = callbacks.recallMemory(chatFolder, args.keyword);
+          return { content: [{ type: 'text' as const, text: result }] };
+        },
+      ),
+
+      tool(
+        'update_long_term_memory',
+        '장기 기억(MEMORY.md)을 업데이트합니다. 자주 반복되는 중요한 사실을 큐레이션하세요.',
+        { content: z.string().describe('MEMORY.md에 저장할 전체 마크다운 내용') },
+        async (args) => {
+          if (!callbacks.updateLongTermMemory) {
+            return { content: [{ type: 'text' as const, text: '메모리 시스템이 활성화되지 않았습니다.' }], isError: true };
+          }
+          callbacks.updateLongTermMemory(chatFolder, args.content);
+          return { content: [{ type: 'text' as const, text: '장기 기억이 업데이트되었습니다.' }] };
         },
       ),
     ],

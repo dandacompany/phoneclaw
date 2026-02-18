@@ -70,6 +70,8 @@ export interface ScheduledTask {
   lastResult: string | null;
   status: 'active' | 'paused' | 'completed';
   createdAt: string;
+  retryCount: number;
+  maxRetries: number;
 }
 
 export interface TaskRunLog {

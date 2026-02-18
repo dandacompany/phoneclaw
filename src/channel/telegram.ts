@@ -2,7 +2,11 @@ import { Bot } from 'grammy';
 
 import { BOT_NAME, TRIGGER_PATTERN, ADMIN_USER_IDS } from '../config.js';
 import { logger } from '../logger.js';
+import { withRetry } from '../utils/retry.js';
+import { RateLimiter } from '../utils/rate-limiter.js';
 import type { Channel, OnInboundMessage, OnChatMetadata, RegisteredChat } from '../types.js';
+
+const adminRateLimiter = new RateLimiter(5, 60000); // 분당 5회
 
 export interface AdminCommandCallbacks {
   register: (chatId: string, name: string, folder: string, requiresTrigger: boolean) => void;
@@ -10,6 +14,7 @@ export interface AdminCommandCallbacks {
   getStatus: () => string;
   getChats: () => string;
   getTasks: () => string;
+  getMetrics?: () => string;
 }
 
 export interface TelegramChannelOpts {
@@ -62,13 +67,18 @@ export class TelegramChannel implements Channel {
     if (this.opts.adminCommands) {
       const admin = this.opts.adminCommands;
 
+      // 관리자 인증 + 레이트 리밋 미들웨어
+      const checkAdminRate = (userId: string): string | null => {
+        if (!isAdmin(userId)) return '관리자 권한이 필요합니다.';
+        if (!adminRateLimiter.check(userId)) return '요청이 너무 빈번합니다. 잠시 후 다시 시도해주세요.';
+        return null;
+      };
+
       // /register - 현재 채팅을 등록
       this.bot.command('register', (ctx) => {
         const userId = ctx.from?.id.toString() || '';
-        if (!isAdmin(userId)) {
-          ctx.reply('관리자 권한이 필요합니다.');
-          return;
-        }
+        const err = checkAdminRate(userId);
+        if (err) { ctx.reply(err); return; }
 
         const chatId = `tg:${ctx.chat.id}`;
         const chatType = ctx.chat.type;
@@ -101,10 +111,8 @@ export class TelegramChannel implements Channel {
       // /unregister - 현재 채팅 등록 해제
       this.bot.command('unregister', (ctx) => {
         const userId = ctx.from?.id.toString() || '';
-        if (!isAdmin(userId)) {
-          ctx.reply('관리자 권한이 필요합니다.');
-          return;
-        }
+        const err = checkAdminRate(userId);
+        if (err) { ctx.reply(err); return; }
 
         const chatId = `tg:${ctx.chat.id}`;
         try {
@@ -118,32 +126,36 @@ export class TelegramChannel implements Channel {
       // /status - 봇 상태 확인
       this.bot.command('status', (ctx) => {
         const userId = ctx.from?.id.toString() || '';
-        if (!isAdmin(userId)) {
-          ctx.reply('관리자 권한이 필요합니다.');
-          return;
-        }
+        const err = checkAdminRate(userId);
+        if (err) { ctx.reply(err); return; }
         ctx.reply(admin.getStatus());
       });
 
       // /chats - 등록된 채팅 목록
       this.bot.command('chats', (ctx) => {
         const userId = ctx.from?.id.toString() || '';
-        if (!isAdmin(userId)) {
-          ctx.reply('관리자 권한이 필요합니다.');
-          return;
-        }
+        const err = checkAdminRate(userId);
+        if (err) { ctx.reply(err); return; }
         ctx.reply(admin.getChats());
       });
 
       // /tasks - 예약 작업 목록
       this.bot.command('tasks', (ctx) => {
         const userId = ctx.from?.id.toString() || '';
-        if (!isAdmin(userId)) {
-          ctx.reply('관리자 권한이 필요합니다.');
-          return;
-        }
+        const err = checkAdminRate(userId);
+        if (err) { ctx.reply(err); return; }
         ctx.reply(admin.getTasks());
       });
+
+      // /metrics - 메트릭스 확인
+      if (admin.getMetrics) {
+        this.bot.command('metrics', (ctx) => {
+          const userId = ctx.from?.id.toString() || '';
+          const err = checkAdminRate(userId);
+          if (err) { ctx.reply(err); return; }
+          ctx.reply(admin.getMetrics!());
+        });
+      }
     }
 
     // 텍스트 메시지 처리
@@ -274,21 +286,28 @@ export class TelegramChannel implements Channel {
       return;
     }
 
-    try {
-      const numericId = chatId.replace(/^tg:/, '');
+    const numericId = chatId.replace(/^tg:/, '');
+    const MAX_LENGTH = 4096;
+    const bot = this.bot;
 
-      // Telegram 4096자 제한 - 필요 시 분할 전송
-      const MAX_LENGTH = 4096;
+    const sendChunk = async (chunk: string) => {
+      await withRetry(() => bot.api.sendMessage(numericId, chunk), {
+        maxAttempts: 3,
+        baseDelayMs: 1000,
+      });
+    };
+
+    try {
       if (text.length <= MAX_LENGTH) {
-        await this.bot.api.sendMessage(numericId, text);
+        await sendChunk(text);
       } else {
         for (let i = 0; i < text.length; i += MAX_LENGTH) {
-          await this.bot.api.sendMessage(numericId, text.slice(i, i + MAX_LENGTH));
+          await sendChunk(text.slice(i, i + MAX_LENGTH));
         }
       }
       logger.info({ chatId, length: text.length }, 'Telegram 메시지 전송');
     } catch (err) {
-      logger.error({ chatId, err }, 'Telegram 메시지 전송 실패');
+      logger.error({ chatId, err }, 'Telegram 메시지 전송 실패 (재시도 후)');
     }
   }
 

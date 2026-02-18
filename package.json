@@ -1,6 +1,6 @@
 {
   "name": "phoneclaw",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Telegram AI 비서 봇 - Claude Code Skills 기반",
   "private": true,
   "type": "module",

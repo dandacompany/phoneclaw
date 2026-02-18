@@ -38,7 +38,8 @@ function createSchema(database: Database.Database): void {
 
     CREATE TABLE IF NOT EXISTS sessions (
       chat_folder TEXT PRIMARY KEY,
-      session_id TEXT NOT NULL
+      session_id TEXT NOT NULL,
+      last_access TEXT
     );
 
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
@@ -52,7 +53,9 @@ function createSchema(database: Database.Database): void {
       last_run TEXT,
       last_result TEXT,
       status TEXT DEFAULT 'active',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      retry_count INTEGER DEFAULT 0,
+      max_retries INTEGER DEFAULT 2
     );
     CREATE INDEX IF NOT EXISTS idx_tasks_next_run ON scheduled_tasks(next_run);
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON scheduled_tasks(status);
@@ -74,6 +77,26 @@ function createSchema(database: Database.Database): void {
       value TEXT NOT NULL
     );
   `);
+
+  // 마이그레이션: 기존 DB에 새 컬럼 추가
+  migrate(database);
+}
+
+function migrate(database: Database.Database): void {
+  const taskCols = database.prepare("PRAGMA table_info(scheduled_tasks)").all() as Array<{ name: string }>;
+  const taskColNames = taskCols.map((c) => c.name);
+  if (!taskColNames.includes('retry_count')) {
+    database.exec('ALTER TABLE scheduled_tasks ADD COLUMN retry_count INTEGER DEFAULT 0');
+  }
+  if (!taskColNames.includes('max_retries')) {
+    database.exec('ALTER TABLE scheduled_tasks ADD COLUMN max_retries INTEGER DEFAULT 2');
+  }
+
+  const sessionCols = database.prepare("PRAGMA table_info(sessions)").all() as Array<{ name: string }>;
+  const sessionColNames = sessionCols.map((c) => c.name);
+  if (!sessionColNames.includes('last_access')) {
+    database.exec('ALTER TABLE sessions ADD COLUMN last_access TEXT');
+  }
 }
 
 // === 초기화 ===
@@ -247,16 +270,18 @@ export function getSession(chatFolder: string): string | undefined {
 }
 
 export function setSession(chatFolder: string, sessionId: string): void {
-  db.prepare('INSERT OR REPLACE INTO sessions (chat_folder, session_id) VALUES (?, ?)').run(chatFolder, sessionId);
+  db.prepare('INSERT OR REPLACE INTO sessions (chat_folder, session_id, last_access) VALUES (?, ?, ?)').run(
+    chatFolder, sessionId, new Date().toISOString(),
+  );
 }
 
 // === 예약 작업 ===
 
 export function createTask(task: Omit<ScheduledTask, 'lastRun' | 'lastResult'>): void {
   db.prepare(`
-    INSERT INTO scheduled_tasks (id, chat_folder, chat_id, prompt, schedule_type, schedule_value, next_run, status, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(task.id, task.chatFolder, task.chatId, task.prompt, task.scheduleType, task.scheduleValue, task.nextRun, task.status, task.createdAt);
+    INSERT INTO scheduled_tasks (id, chat_folder, chat_id, prompt, schedule_type, schedule_value, next_run, status, created_at, retry_count, max_retries)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(task.id, task.chatFolder, task.chatId, task.prompt, task.scheduleType, task.scheduleValue, task.nextRun, task.status, task.createdAt, task.retryCount ?? 0, task.maxRetries ?? 2);
 }
 
 export function getTaskById(id: string): ScheduledTask | undefined {
@@ -264,8 +289,36 @@ export function getTaskById(id: string): ScheduledTask | undefined {
     id: string; chat_folder: string; chat_id: string; prompt: string;
     schedule_type: string; schedule_value: string; next_run: string | null;
     last_run: string | null; last_result: string | null; status: string; created_at: string;
+    retry_count: number; max_retries: number;
   } | undefined;
   if (!row) return undefined;
+  return mapTaskRow(row);
+}
+
+export function getAllTasks(): ScheduledTask[] {
+  const rows = db.prepare('SELECT * FROM scheduled_tasks ORDER BY created_at DESC').all() as TaskRow[];
+  return rows.map(mapTaskRow);
+}
+
+export function getDueTasks(): ScheduledTask[] {
+  const now = new Date().toISOString();
+  const rows = db.prepare(`
+    SELECT * FROM scheduled_tasks
+    WHERE status = 'active' AND next_run IS NOT NULL AND next_run <= ?
+    ORDER BY next_run
+  `).all(now) as TaskRow[];
+  return rows.map(mapTaskRow);
+}
+
+// 공용 row 매핑 타입
+type TaskRow = {
+  id: string; chat_folder: string; chat_id: string; prompt: string;
+  schedule_type: string; schedule_value: string; next_run: string | null;
+  last_run: string | null; last_result: string | null; status: string; created_at: string;
+  retry_count: number; max_retries: number;
+};
+
+function mapTaskRow(row: TaskRow): ScheduledTask {
   return {
     id: row.id,
     chatFolder: row.chat_folder,
@@ -278,54 +331,9 @@ export function getTaskById(id: string): ScheduledTask | undefined {
     lastResult: row.last_result,
     status: row.status as ScheduledTask['status'],
     createdAt: row.created_at,
+    retryCount: row.retry_count ?? 0,
+    maxRetries: row.max_retries ?? 2,
   };
-}
-
-export function getAllTasks(): ScheduledTask[] {
-  const rows = db.prepare('SELECT * FROM scheduled_tasks ORDER BY created_at DESC').all() as Array<{
-    id: string; chat_folder: string; chat_id: string; prompt: string;
-    schedule_type: string; schedule_value: string; next_run: string | null;
-    last_run: string | null; last_result: string | null; status: string; created_at: string;
-  }>;
-  return rows.map((row) => ({
-    id: row.id,
-    chatFolder: row.chat_folder,
-    chatId: row.chat_id,
-    prompt: row.prompt,
-    scheduleType: row.schedule_type as ScheduledTask['scheduleType'],
-    scheduleValue: row.schedule_value,
-    nextRun: row.next_run,
-    lastRun: row.last_run,
-    lastResult: row.last_result,
-    status: row.status as ScheduledTask['status'],
-    createdAt: row.created_at,
-  }));
-}
-
-export function getDueTasks(): ScheduledTask[] {
-  const now = new Date().toISOString();
-  const rows = db.prepare(`
-    SELECT * FROM scheduled_tasks
-    WHERE status = 'active' AND next_run IS NOT NULL AND next_run <= ?
-    ORDER BY next_run
-  `).all(now) as Array<{
-    id: string; chat_folder: string; chat_id: string; prompt: string;
-    schedule_type: string; schedule_value: string; next_run: string | null;
-    last_run: string | null; last_result: string | null; status: string; created_at: string;
-  }>;
-  return rows.map((row) => ({
-    id: row.id,
-    chatFolder: row.chat_folder,
-    chatId: row.chat_id,
-    prompt: row.prompt,
-    scheduleType: row.schedule_type as ScheduledTask['scheduleType'],
-    scheduleValue: row.schedule_value,
-    nextRun: row.next_run,
-    lastRun: row.last_run,
-    lastResult: row.last_result,
-    status: row.status as ScheduledTask['status'],
-    createdAt: row.created_at,
-  }));
 }
 
 export function updateTask(id: string, updates: Partial<Pick<ScheduledTask, 'nextRun' | 'status' | 'prompt'>>): void {
@@ -371,4 +379,41 @@ export function getRouterState(key: string): string | undefined {
 
 export function setRouterState(key: string, value: string): void {
   db.prepare('INSERT OR REPLACE INTO router_state (key, value) VALUES (?, ?)').run(key, value);
+}
+
+// === 트랜잭션 헬퍼 ===
+
+export function withTransaction<T>(fn: () => T): T {
+  const transaction = db.transaction(fn);
+  return transaction();
+}
+
+// === 정리 ===
+
+/** task_run_logs에서 N일 초과된 레코드 삭제 */
+export function cleanupOldRunLogs(retentionDays = 14): number {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - retentionDays);
+  const result = db.prepare('DELETE FROM task_run_logs WHERE run_at < ?').run(cutoff.toISOString());
+  return result.changes;
+}
+
+/** N일 미접근 세션 삭제 (가비지 컬렉션) */
+export function cleanupStaleSessions(retentionDays = 90): number {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - retentionDays);
+  const result = db.prepare(
+    'DELETE FROM sessions WHERE last_access IS NOT NULL AND last_access < ?',
+  ).run(cutoff.toISOString());
+  return result.changes;
+}
+
+// === 스케줄러 retry ===
+
+export function incrementTaskRetry(taskId: string): void {
+  db.prepare('UPDATE scheduled_tasks SET retry_count = retry_count + 1 WHERE id = ?').run(taskId);
+}
+
+export function resetTaskRetry(taskId: string): void {
+  db.prepare('UPDATE scheduled_tasks SET retry_count = 0 WHERE id = ?').run(taskId);
 }

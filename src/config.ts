@@ -44,6 +44,22 @@ export const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 // === 타임존 ===
 export const TIMEZONE = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+// === 메모리 ===
+export const MEMORY_RECENT_DAYS = parseInt(process.env.MEMORY_RECENT_DAYS || '2', 10);
+export const MEMORY_MAX_DAILY_LOG_KB = parseInt(process.env.MEMORY_MAX_DAILY_LOG_KB || '8', 10);
+export const MEMORY_MAX_LONGTERM_KB = parseInt(process.env.MEMORY_MAX_LONGTERM_KB || '16', 10);
+
+// === 하트비트 ===
+export const HEARTBEAT_ENABLED = process.env.HEARTBEAT_ENABLED === 'true';
+export const HEARTBEAT_INTERVAL = parseInt(process.env.HEARTBEAT_INTERVAL || '1800000', 10); // 30분
+export const HEARTBEAT_ACTIVE_START = parseInt(process.env.HEARTBEAT_ACTIVE_START || '8', 10);
+export const HEARTBEAT_ACTIVE_END = parseInt(process.env.HEARTBEAT_ACTIVE_END || '22', 10);
+
+// === 웹훅 ===
+export const WEBHOOK_ENABLED = process.env.WEBHOOK_ENABLED === 'true';
+export const WEBHOOK_PORT = parseInt(process.env.WEBHOOK_PORT || '3456', 10);
+export const WEBHOOK_TOKEN = process.env.WEBHOOK_TOKEN || '';
+
 // === 트리거 패턴 ===
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
